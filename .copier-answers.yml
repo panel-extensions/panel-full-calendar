@@ -1,0 +1,12 @@
+# This file is managed by Copier; DO NOT EDIT OR REMOVE.
+_commit: e41dd4b
+_src_path: https://github.com/panel-extensions/copier-template-panel-extension
+add_autobump_workflow: true
+author_email: aholovizdev@gmail.com
+author_name: Andrew
+docs_url: https://panel-extensions.github.io/panel-full-calendar/
+github_url: https://github.com/panel-extensions/panel-full-calendar
+github_user: panel-extensions
+minimal_python_version: py310
+project_short_description: Extends HoloViz Panel with FullCalendar capabilities
+project_slug: panel-full-calendar
