@@ -9,7 +9,7 @@ import param
 from panel.custom import JSComponent
 
 THIS_DIR = Path(__file__).parent
-MODELS_DIR = THIS_DIR.parent / "models"
+MODELS_DIR = THIS_DIR / "models"
 VIEW_DEFAULT_INCREMENTS = {
     "dayGridMonth": {"days": 1},
     "dayGridWeek": {"weeks": 1},
