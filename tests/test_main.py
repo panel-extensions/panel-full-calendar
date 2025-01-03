@@ -34,13 +34,9 @@ def test_calendar_value_camel_case():
 def test_calendar_add_event():
     calendar = Calendar()
     calendar.add_event(start="2020-01-01", end="2020-01-02", title="event")
-    assert calendar.value == [
-        {"start": "2020-01-01", "end": "2020-01-02", "title": "event"}
-    ]
+    assert calendar.value == [{"start": "2020-01-01", "end": "2020-01-02", "title": "event"}]
 
-    calendar.add_event(
-        start="2020-01-03", end="2020-01-04", title="event2", display="background"
-    )
+    calendar.add_event(start="2020-01-03", end="2020-01-04", title="event2", display="background")
     assert calendar.value == [
         {"start": "2020-01-01", "end": "2020-01-02", "title": "event"},
         {

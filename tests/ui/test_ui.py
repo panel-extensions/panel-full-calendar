@@ -1,3 +1,4 @@
+# ignore: D103
 from datetime import date
 
 import pytest
@@ -20,10 +21,7 @@ def test_calendar_current_date_view(page):
     serve_component(page, calendar)
 
     assert page.locator(".fc-toolbar-title").first.inner_text() == "January 1, 2020"
-    assert (
-        page.locator(".fc-timeGridDay-button").first.get_attribute("class").split()[-1]
-        == "fc-button-active"
-    )
+    assert page.locator(".fc-timeGridDay-button").first.get_attribute("class").split()[-1] == "fc-button-active"
 
 
 def test_calendar_change_view(page):
@@ -31,16 +29,10 @@ def test_calendar_change_view(page):
     serve_component(page, calendar)
 
     assert calendar.current_view == "dayGridMonth"
-    assert (
-        page.locator(".fc-dayGridMonth-button").first.get_attribute("class").split()[-1]
-        == "fc-button-active"
-    )
+    assert page.locator(".fc-dayGridMonth-button").first.get_attribute("class").split()[-1] == "fc-button-active"
 
     calendar.change_view("timeGridDay")
-    assert (
-        page.locator(".fc-timeGridDay-button").first.get_attribute("class").split()[-1]
-        == "fc-button-active"
-    )
+    assert page.locator(".fc-timeGridDay-button").first.get_attribute("class").split()[-1] == "fc-button-active"
     assert calendar.current_view == "timeGridDay"
 
 
@@ -147,10 +139,7 @@ def test_calendar_batch_update_options_title(page):
     calendar = Calendar(current_date="2020-01-01", current_view="timeGridWeek")
     serve_component(page, calendar)
 
-    assert (
-        page.locator(".fc-toolbar-title").first.inner_text()
-        == "Dec 29, 2019 to Jan 4, 2020"
-    )
+    assert page.locator(".fc-toolbar-title").first.inner_text() == "Dec 29, 2019 to Jan 4, 2020"
 
     calendar.param.update(
         title_format={"month": "numeric", "year": "numeric"},
@@ -189,16 +178,10 @@ def test_calendar_current_view_callback(page):
     serve_component(page, calendar)
 
     assert calendar.current_view == "timeGridDay"
-    assert (
-        page.locator(".fc-timeGridDay-button").first.get_attribute("class").split()[-1]
-        == "fc-button-active"
-    )
+    assert page.locator(".fc-timeGridDay-button").first.get_attribute("class").split()[-1] == "fc-button-active"
 
     calendar.change_view("dayGridMonth")
-    assert (
-        page.locator(".fc-dayGridMonth-button").first.get_attribute("class").split()[-1]
-        == "fc-button-active"
-    )
+    assert page.locator(".fc-dayGridMonth-button").first.get_attribute("class").split()[-1] == "fc-button-active"
     assert calendar.current_view == "dayGridMonth"
     assert text_input.value == "dayGridMonth"
 

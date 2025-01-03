@@ -2,12 +2,10 @@
 
 import datetime
 import json
-
 from pathlib import Path
 from typing import Literal
 
 import param
-
 from panel.custom import JSComponent
 
 THIS_DIR = Path(__file__).parent
@@ -28,6 +26,7 @@ VIEW_DEFAULT_INCREMENTS = {
 class Calendar(JSComponent):
     """
     The Calendar widget is a wrapper around the FullCalendar library.
+
     See https://fullcalendar.io/docs for more information on the parameters.
     """
 
@@ -36,13 +35,9 @@ class Calendar(JSComponent):
         doc="Determines how an event's duration should be mutated when it is dragged from a timed section to an all-day section and vice versa.",
     )
 
-    aspect_ratio = param.Number(
-        default=None, doc="Sets the width-to-height aspect ratio of the calendar."
-    )
+    aspect_ratio = param.Number(default=None, doc="Sets the width-to-height aspect ratio of the calendar.")
 
-    business_hours = param.Dict(
-        default={}, doc="Emphasizes certain time slots on the calendar."
-    )
+    business_hours = param.Dict(default={}, doc="Emphasizes certain time slots on the calendar.")
 
     button_icons = param.Dict(
         default={},
@@ -87,9 +82,7 @@ class Calendar(JSComponent):
         doc="A callback that will be called when the current view changes.",
     )
 
-    date_alignment = param.String(
-        default=None, doc="Determines how certain views should be initially aligned."
-    )
+    date_alignment = param.String(default=None, doc="Determines how certain views should be initially aligned.")
 
     date_click_callback = param.Callable(
         default=None,
@@ -111,10 +104,7 @@ class Calendar(JSComponent):
 
     day_max_events = param.Integer(
         default=None,
-        doc=(
-            "In dayGrid view, the max number of events within a given day, not counting the +more link. "
-            "The rest will show up in a popover."
-        ),
+        doc=("In dayGrid view, the max number of events within a given day, not counting the +more link. " "The rest will show up in a popover."),
     )
 
     day_popover_format = param.Dict(
@@ -260,9 +250,7 @@ class Calendar(JSComponent):
         doc="If the rows of a given view don't take up the entire height, they will expand to fit.",
     )
 
-    footer_toolbar = param.Dict(
-        default={}, doc="Defines the buttons and title at the bottom of the calendar."
-    )
+    footer_toolbar = param.Dict(default={}, doc="Defines the buttons and title at the bottom of the calendar.")
 
     handle_window_resize = param.Boolean(
         default=True,
@@ -298,9 +286,7 @@ class Calendar(JSComponent):
         doc="When an event's end time spans into another day, the minimum time it must be in order for it to render as if it were on that day.",
     )
 
-    now_indicator = param.Boolean(
-        default=True, doc="Whether to display an indicator for the current time."
-    )
+    now_indicator = param.Boolean(default=True, doc="Whether to display an indicator for the current time.")
 
     progressive_event_rendering = param.Boolean(
         default=False,
@@ -384,22 +370,14 @@ class Calendar(JSComponent):
 
     valid_range = param.Dict(
         default=None,
-        doc=(
-            "Dates outside of the valid range will be grayed-out and inaccessible. "
-            "Can have `start` and `end` keys, but both do not need to be together."
-        ),
+        doc=("Dates outside of the valid range will be grayed-out and inaccessible. " "Can have `start` and `end` keys, but both do not need to be together."),
     )
 
-    value = param.List(
-        default=[], item_type=dict, doc="List of events to display on the calendar."
-    )
+    value = param.List(default=[], item_type=dict, doc="List of events to display on the calendar.")
 
     views = param.Dict(
         default={},
-        doc=(
-            "Options to pass to only to specific calendar views. "
-            "Provide separate options objects within the views option, keyed by the name of your view."
-        ),
+        doc=("Options to pass to only to specific calendar views. " "Provide separate options objects within the views option, keyed by the name of your view."),
     )
 
     window_resize_delay = param.Integer(
@@ -439,6 +417,7 @@ class Calendar(JSComponent):
     }
 
     def __init__(self, **params):
+        """Create a new Calendar widget."""
         super().__init__(**params)
         if self.event_keys_auto_camel_case:
             self.value = [self._to_camel_case_keys(event) for event in self.value]
@@ -503,33 +482,23 @@ class Calendar(JSComponent):
         )
 
     def click_next(self) -> None:
-        """
-        Click the next button through the calendar's UI.
-        """
+        """Click the next button through the calendar's UI."""
         self._send_msg({"type": "next"})
 
     def click_prev(self) -> None:
-        """
-        Click the previous button through the calendar's UI.
-        """
+        """Click the previous button through the calendar's UI."""
         self._send_msg({"type": "prev"})
 
     def click_prev_year(self) -> None:
-        """
-        Click the previous year button through the calendar's UI.
-        """
+        """Click the previous year button through the calendar's UI."""
         self._send_msg({"type": "prevYear"})
 
     def click_next_year(self) -> None:
-        """
-        Click the next year button through the calendar's UI.
-        """
+        """Click the next year button through the calendar's UI."""
         self._send_msg({"type": "nextYear"})
 
     def click_today(self) -> None:
-        """
-        Click the today button through the calendar's UI.
-        """
+        """Click the today button through the calendar's UI."""
         self._send_msg({"type": "today"})
 
     def change_view(
@@ -559,9 +528,7 @@ class Calendar(JSComponent):
         """
         self._send_msg({"type": "gotoDate", "date": date})
 
-    def increment_date(
-        self, increment: str | datetime.timedelta | int | dict | None = None
-    ) -> None:
+    def increment_date(self, increment: str | datetime.timedelta | int | dict | None = None) -> None:
         """
         Increment the current date by a specific amount.
 
@@ -583,7 +550,6 @@ class Calendar(JSComponent):
                     listYear: {"years": 1}
                     multiMonthYear: {"years": 1}
         """
-
         if increment is None and self.date_increment is None:
             increment = VIEW_DEFAULT_INCREMENTS[self.current_view]
         self._send_msg({"type": "incrementDate", "increment": increment})
@@ -618,6 +584,7 @@ class Calendar(JSComponent):
                 If None, the event will be all-day.
             title: The title of the event.
             all_day: Whether the event is an all-day event.
+            display: How the event should be displayed. Options: "background", "inverse-background".
             **kwargs: Additional properties to set on the event. Takes precedence over other arguments.
         """
         if self.event_keys_auto_camel_case:
@@ -660,11 +627,7 @@ class Calendar(JSComponent):
     def _update_options(self, *events):
         updates = [
             {
-                "key": (
-                    "events"
-                    if self._to_camel_case(event.name) == "value"
-                    else self._to_camel_case(event.name)
-                ),
+                "key": ("events" if self._to_camel_case(event.name) == "value" else self._to_camel_case(event.name)),
                 "value": event.new,
             }
             for event in events
@@ -673,12 +636,7 @@ class Calendar(JSComponent):
 
     @staticmethod
     def _to_camel_case(string):
-        return "".join(
-            word.capitalize() if i else word for i, word in enumerate(string.split("_"))
-        )
+        return "".join(word.capitalize() if i else word for i, word in enumerate(string.split("_")))
 
     def _to_camel_case_keys(self, d):
-        return {
-            self._to_camel_case(key) if "_" in key else key: val
-            for key, val in d.items()
-        }
+        return {self._to_camel_case(key) if "_" in key else key: val for key, val in d.items()}

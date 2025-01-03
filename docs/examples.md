@@ -197,4 +197,3 @@ pn.Column(date_clicked, calendar)
 FullCalendar is full of features and options, so be sure to check out the full list of options in the [FullCalendar docs](https://fullcalendar.io/docs).
 
 Note, not all functionality has been ported over--if there's one you want, please submit a [GitHub issue](https://github.com/panel-extensions/panel_full_calendar/issues/new/choose).
-
