@@ -8,24 +8,67 @@ Extends HoloViz Panel with FullCalendar capabilities
 
 ## Features
 
-panel-full-calendar
+`panel-full-calendar` integrates the powerful [FullCalendar](https://fullcalendar.io/) JavaScript library with the [Panel](https://panel.holoviz.org/) ecosystem, enabling interactive calendar widgets directly in Python applications. It provides the ability to:
 
-## Pin your version!
+- Display and interact with calendars in various views (day, week, month).
+- Add, update, and remove events programmatically or through user interactions.
+- Customize the calendar's appearance, event handling, and toolbar controls.
+- Enable event dragging, resizing, and date selection callbacks.
+- Handle recurring events and complex scheduling logic.
 
-This project is **in its early stages**, so if you find a version that suits your needs, it’s recommended to **pin your version**, as updates may introduce changes.
+This widget is perfect for building dashboards, scheduling applications, and any interface that requires robust calendar functionality.
+
+---
+
+## Pin Your Version
+
+This project is **in its early stages**, so if you find a version that suits your needs, it’s recommended to **pin your version**, as updates may introduce breaking changes.
+
+To pin your version in `requirements.txt`, specify the version explicitly:
+
+```text
+panel-full-calendar==0.x.x
+```
+
+Or in `pyproject.toml`:
+
+```toml
+[tool.poetry.dependencies]
+panel-full-calendar = "0.x.x"
+```
+
+---
 
 ## Installation
 
-Install it via `pip`:
+Install `panel-full-calendar` via `pip`:
 
 ```bash
 pip install panel-full-calendar
 ```
 
+Alternatively, add it to your `pyproject.toml`:
+
+```toml
+[tool.poetry.dependencies]
+panel-full-calendar = "^0.x.x"
+```
+
+---
+
 ## Usage
 
+To use the calendar in a Panel application:
+
 ```python
-import panel_full_calendar
+import panel as pn
+from panel_full_calendar import Calendar
+
+pn.extension("fullcalendar")
+
+# Create a basic calendar widget
+calendar = Calendar(sizing_mode="stretch_width")
+calendar.show()
 ```
 
 ## Development
@@ -73,3 +116,5 @@ Contributions are welcome! Please follow these steps to contribute:
 5. Open a pull request.
 
 Please ensure your code adheres to the project's coding standards and passes all tests.
+
+If you encounter issues or want to request features, please submit a [GitHub issue](https://github.com/panel-extensions/panel-full-calendar/issues/new/choose).
