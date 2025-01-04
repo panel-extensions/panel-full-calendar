@@ -52,6 +52,7 @@ dev = [
     "mkdocs-material",
     "mkdocs",
     "mkdocstrings[python]",
+    "mkdocs_pycafe",
     "pre-commit",
     "pytest-asyncio",
     "pytest-rerunfailures",
