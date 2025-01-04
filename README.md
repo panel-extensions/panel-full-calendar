@@ -107,7 +107,7 @@ Note: `copier` will show `Conflict` for files with manual changes during an upda
 
 ## ❤️ Contributing
 
-Contributions are welcome! Please follow these steps to contribute:
+Contributions are welcome 🤗! Please follow these steps to contribute:
 
 1. Fork the repository.
 2. Create a new branch: `git checkout -b feature/YourFeature`.
