@@ -13,7 +13,6 @@ python = ">=3.10"
 pip = "*"
 hatchling = "*"
 hatch-vcs = "*"
-pkginfo = ">=1.12.0"
 panel = ">=1.5.0"
 setuptools = ">=61"
 setuptools-scm = "*"
@@ -28,7 +27,8 @@ test-coverage = "pytest --cov=panel_full_calendar --cov-report=xml --cov-report=
 
 [feature.build.dependencies]
 python-build = "*"
-twine = "*"
+twine = ">=5.0.0"
+pkginfo = ">=1.12.0"
 wheel = "*"
 [feature.build.tasks]
 build-wheel = "python -m build --no-isolation ."
