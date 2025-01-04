@@ -27,8 +27,8 @@ test-coverage = "pytest --cov=panel_full_calendar --cov-report=xml --cov-report=
 
 [feature.build.dependencies]
 python-build = "*"
-twine = ">=5.0.0"
-pkginfo = ">=1.12.0"
+twine = "<6.0.0"
+pkginfo = ">=1.10.0"
 wheel = "*"
 [feature.build.tasks]
 build-wheel = "python -m build --no-isolation ."
