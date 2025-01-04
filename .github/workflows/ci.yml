@@ -143,7 +143,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 'py310'
+          python-version: '3.10'
 
       - name: Install Dependencies
         run: |
