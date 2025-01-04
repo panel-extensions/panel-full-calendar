@@ -17,7 +17,7 @@ calendar = Calendar(
     select_callback=update_date_clicked,
     sizing_mode="stretch_width",
 )
-pn.Column(date_clicked, calendar)
+pn.Column(date_clicked, calendar).servable()
 ```
 
 ## Basics
