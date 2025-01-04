@@ -4,9 +4,10 @@ requires = [
     "hatch-vcs",
     "panel>=1.5.0",
     "packaging",
+    "pkginfo>=1.12.0",
+    "twine>=5.0.0",
 ]
 build-backend = "hatchling.build"
-
 
 [tool.setuptools_scm]
 version_scheme = "post-release"
