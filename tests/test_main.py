@@ -1,3 +1,5 @@
+import pytest
+
 from panel_full_calendar import Calendar
 
 
@@ -58,4 +60,236 @@ def test_calendar_add_event_camel_case_precedence():
             "title": "(no title)",
             "allDay": True,
         }  # camelCase takes precedence
+    ]
+
+
+def test_remove_event_simple():
+    # Test basic removal with start, title, no end/all_day provided
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-01-01",
+                "end": "2020-01-02",
+                "title": "event",
+                "allDay": False,
+            },
+            {"start": "2020-01-03", "title": "event2", "allDay": True},
+        ]
+    )
+    # Remove first event using minimal arguments (branch: end is None and all_day is None)
+    calendar.remove_event("2020-01-01", "event")
+    assert calendar.value == [{"start": "2020-01-03", "title": "event2", "allDay": True}]
+
+    # Remove second event (all-day) using appropriate arguments
+    calendar.remove_event("2020-01-03", "event2")
+    assert calendar.value == []
+
+
+def test_remove_event_with_end_and_all_day():
+    # Test removal when both end and all_day parameters are provided
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-01-01",
+                "end": "2020-01-02",
+                "title": "meeting",
+                "allDay": True,
+            }
+        ]
+    )
+    calendar.remove_event("2020-01-01", "meeting", end="2020-01-02", all_day=True)
+    assert calendar.value == []
+
+
+def test_remove_event_with_end_only():
+    # Test removal when only end parameter is provided
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-02-01",
+                "end": "2020-02-02",
+                "title": "workshop",
+                "allDay": False,
+            }
+        ]
+    )
+    calendar.remove_event("2020-02-01", "workshop", end="2020-02-02")
+    assert calendar.value == []
+
+
+def test_remove_event_with_all_day_only():
+    # Test removal when only all_day parameter is provided
+    calendar = Calendar(value=[{"start": "2020-03-01", "title": "holiday", "allDay": True}])
+    calendar.remove_event("2020-03-01", "holiday", all_day=True)
+    assert calendar.value == []
+
+
+def test_remove_event_not_found():
+    # Test that removing a non-existent event raises ValueError
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-04-01",
+                "end": "2020-04-02",
+                "title": "nonexistent",
+                "allDay": False,
+            }
+        ]
+    )
+    with pytest.raises(ValueError):
+        calendar.remove_event("2021-01-01", "missing event")
+
+
+def test_remove_event_norm_start():
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-05-01",
+                "end": "2020-05-02",
+                "title": "event",
+                "allDay": False,
+            }
+        ]
+    )
+    calendar.remove_event("2020-05-01T00:00:00", "event")
+    assert calendar.value == []
+
+
+def test_update_event_simple():
+    # Test basic update with no end/all_day provided
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-01-01",
+                "end": "2020-01-02",
+                "title": "original",
+                "allDay": False,
+            }
+        ]
+    )
+    calendar.update_event("2020-01-01", "original", title="updated event", location="Room 1")
+    assert calendar.value == [
+        {
+            "start": "2020-01-01",
+            "end": "2020-01-02",
+            "title": "updated event",
+            "allDay": False,
+            "location": "Room 1",
+        }
+    ]
+
+
+def test_update_event_with_end_and_all_day():
+    # Test update when both end and all_day parameters are provided
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-05-01",
+                "end": "2020-05-02",
+                "title": "conference",
+                "allDay": True,
+            }
+        ]
+    )
+    calendar.update_event(
+        "2020-05-01",
+        "conference",
+        old_end="2020-05-02",
+        old_all_day=True,
+        title="updated conference",
+        speakers=5,
+    )
+    assert calendar.value == [
+        {
+            "start": "2020-05-01",
+            "end": "2020-05-02",
+            "title": "updated conference",
+            "allDay": True,
+            "speakers": 5,
+        }
+    ]
+
+
+def test_update_event_with_end_only():
+    # Test update when only end parameter is provided
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-06-01",
+                "end": "2020-06-02",
+                "title": "seminar",
+                "allDay": False,
+            }
+        ]
+    )
+    calendar.update_event(
+        "2020-06-01",
+        "seminar",
+        old_end="2020-06-02",
+        title="updated seminar",
+        duration="2h",
+    )
+    assert calendar.value == [
+        {
+            "start": "2020-06-01",
+            "end": "2020-06-02",
+            "title": "updated seminar",
+            "allDay": False,
+            "duration": "2h",
+        }
+    ]
+
+
+def test_update_event_with_all_day_only():
+    # Test update when only all_day parameter is provided
+    calendar = Calendar(value=[{"start": "2020-07-01", "title": "festival", "allDay": True}])
+    calendar.update_event(
+        "2020-07-01",
+        "festival",
+        old_all_day=True,
+        title="updated festival",
+        location="Park",
+    )
+    assert calendar.value == [
+        {
+            "start": "2020-07-01",
+            "title": "updated festival",
+            "allDay": True,
+            "location": "Park",
+        }
+    ]
+
+
+def test_update_event_not_found():
+    # Test that updating a non-existent event raises ValueError
+    calendar = Calendar(value=[{"start": "2020-08-01", "title": "gala", "allDay": False}])
+    with pytest.raises(ValueError):
+        calendar.update_event("2020-09-01", "nonexistent", title="should fail")
+
+
+def test_update_event_norm_start():
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-10-01",
+                "end": "2020-10-02",
+                "title": "meeting",
+                "allDay": False,
+            }
+        ]
+    )
+    calendar.update_event(
+        "2020-10-01T00:00:00",
+        "meeting",
+        title="updated meeting",
+        location="Office",
+    )
+    assert calendar.value == [
+        {
+            "start": "2020-10-01",
+            "end": "2020-10-02",
+            "title": "updated meeting",
+            "allDay": False,
+            "location": "Office",
+        }
     ]

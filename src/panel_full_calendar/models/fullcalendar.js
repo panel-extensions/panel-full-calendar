@@ -85,6 +85,9 @@ export function render({model, el}) {
         eventDrop(info) {
           model.send_msg({event_drop: JSON.stringify(info)})
         },
+        eventRemove(info) {
+          model.send_msg({event_remove: JSON.stringify(info)})
+        },
         eventResize(info) {
           model.send_msg({event_resize: JSON.stringify(info)})
         },

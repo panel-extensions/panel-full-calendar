@@ -2,9 +2,11 @@
 
 import datetime
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Literal
 
+import pandas as pd
 import param
 from panel.custom import JSComponent
 
@@ -210,6 +212,11 @@ class Calendar(JSComponent):
         doc="Ensures the eventOrder setting is strictly followed.",
     )
 
+    event_remove_callback = param.Callable(
+        default=None,
+        doc="Triggered when an event is removed.",
+    )
+
     event_resize_callback = param.Callable(
         default=None,
         doc="Triggered when resizing stops and the event has changed in duration.",
@@ -398,6 +405,7 @@ class Calendar(JSComponent):
         "event_drag_start_callback": None,
         "event_drag_stop_callback": None,
         "event_drop_callback": None,
+        "event_remove_callback": None,
         "event_resize_callback": None,
         "event_resize_start_callback": None,
         "event_resize_stop_callback": None,
@@ -604,8 +612,100 @@ class Calendar(JSComponent):
         event.update(kwargs)
         self.value = self.value + [event]
 
+    def remove_event(
+        self,
+        start: str | datetime.datetime | datetime.date | int,
+        title: str,
+        end: str | datetime.datetime | datetime.date | int | None = None,
+        all_day: bool | None = None,
+    ) -> None:
+        """
+        Remove an event from the calendar.
+
+        Args:
+            start: The start date of the event.
+                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
+            title: The title of the event.
+            end: The end date of the event.
+                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
+                If None, the event will be all-day.
+            all_day: Whether the event is an all-day event.
+        """
+        norm_start = pd.to_datetime(start)
+        norm_end = pd.to_datetime(end) if end is not None else None
+
+        events = self.value.copy()
+        for i, event in enumerate(self.value):
+            event_start = pd.to_datetime(event["start"])
+            if event_start == norm_start and event["title"] == title:
+                if end is None and all_day is None:
+                    del events[i]
+                elif end is not None and all_day is not None:
+                    event_end = pd.to_datetime(event["end"])
+                    if event_end == norm_end and event["allDay"] == all_day:
+                        del events[i]
+                elif end is not None:
+                    event_end = pd.to_datetime(event["end"])
+                    if event_end == norm_end:
+                        del events[i]
+                elif all_day is not None and event["allDay"] == all_day:
+                    del events[i]
+                else:
+                    raise ValueError(f"Event {title!r} not found at {norm_start}.")
+                self.value = events
+                return
+        raise ValueError(f"Event {title!r} not found at {norm_start}.")
+
+    def update_event(
+        self,
+        start: str | datetime.datetime | datetime.date | int,
+        old_title: str,
+        old_end: str | datetime.datetime | datetime.date | int | None = None,
+        old_all_day: bool | None = None,
+        **kwargs,
+    ) -> None:
+        """
+        Update an event on the calendar by looking up its start date and title.
+
+        Args:
+            start: The start date of the event.
+                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
+            old_title: The title of the event to update.
+            old_end: The end date of the event to update.
+                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
+                If None, the event is assumed to be all-day.
+            old_all_day: Whether the event to update is an all-day event.
+            **kwargs: Additional properties to set on the event. Takes precedence over other arguments.
+        """
+        norm_start = pd.to_datetime(start)
+        norm_end = pd.to_datetime(old_end) if old_end is not None else None
+        events = deepcopy(self.value)
+        for i, event in enumerate(self.value):
+            event_start = pd.to_datetime(event["start"])
+            if event_start == norm_start and event["title"] == old_title:
+                if old_end is None and old_all_day is None:
+                    events[i].update(kwargs)
+                elif old_end is not None and old_all_day is not None:
+                    event_end = pd.to_datetime(event["end"])
+                    if event_end == norm_end and event["allDay"] == old_all_day:
+                        events[i].update(kwargs)
+                elif old_end is not None:
+                    event_end = pd.to_datetime(event["end"])
+                    if event_end == norm_end:
+                        events[i].update(kwargs)
+                elif old_all_day is not None and event["allDay"] == old_all_day:
+                    events[i].update(kwargs)
+                else:
+                    raise ValueError(f"Event {old_title!r} not found at {norm_start}.")
+                self.value = events
+                return
+        raise ValueError(f"Event {old_title!r} not found at {norm_start}.")
+
     def _handle_msg(self, msg):
-        if "current_date" in msg:
+        if "events" in msg:
+            with param.edit_constant(self):
+                self.events = json.loads(msg["events"])
+        elif "current_date" in msg:
             current_date_info = json.loads(msg["current_date"])
             with param.edit_constant(self):
                 self.current_date = current_date_info["startStr"]
@@ -623,6 +723,10 @@ class Calendar(JSComponent):
             callback = getattr(self, callback_name, None)
             if callback:
                 callback(json.loads(msg[key]))
+
+    @param.depends("value", watch=True, on_init=True)
+    def _update_events(self):
+        self._send_msg({"type": "updateEvents", "value": self.value})
 
     def _update_options(self, *events):
         updates = [
