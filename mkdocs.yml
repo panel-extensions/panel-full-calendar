@@ -1,6 +1,6 @@
 site_name: panel-full-calendar
 site_description: "Extends HoloViz Panel with FullCalendar capabilities"
-site_author: "Andrew"
+site_author: "Andrew Huang"
 
 repo_url: https://github.com/panel-extensions/panel-full-calendar
 repo_name: panel-extensions/panel-full-calendar
@@ -52,23 +52,23 @@ markdown_extensions:
     - pymdownx.inlinehilite
     - pymdownx.snippets
     - admonition
-    - pymdownx.superfences:
-        custom_fences:
-          - name: python
-            class: 'highlight'
-            validator: !!python/name:mkdocs_pycafe.validator
-            format: !!python/object/apply:mkdocs_pycafe.formatter
-              kwds:
-                type: panel
-                requirements: |
-                  # Add any other requirements here
-                  # see https://mkdocs.py.cafe/en/latest/ for more info
-                  panel
-                  panel_full_calendar
-                link_text: |
-                  <img src="https://py.cafe/logos/pycafe_logo.png" style="height: 24px"> **Run and edit this code in Py.Cafe**
-    - pymdownx.snippets:
-        url_download: true
+    # - pymdownx.superfences:
+    #     custom_fences:
+    #       - name: python
+    #         class: 'highlight'
+    #         validator: !!python/name:mkdocs_pycafe.validator
+    #         format: !!python/object/apply:mkdocs_pycafe.formatter
+    #           kwds:
+    #             type: panel
+    #             requirements: |
+    #               # Add any other requirements here
+    #               # see https://mkdocs.py.cafe/en/latest/ for more info
+    #               panel
+    #               panel_full_calendar
+    #             link_text: |
+    #               <img src="https://py.cafe/logos/pycafe_logo.png" style="height: 24px"> **Run and edit this code in Py.Cafe**
+    # - pymdownx.snippets:
+    #     url_download: true
 
 plugins:
   - search
@@ -78,8 +78,9 @@ plugins:
           paths:
             - src
           options:
-            docstring_style: google
+            docstring_style: numpy
             show_if_no_docstring: true
+            merge_init_into_class: true
             filters:
             - "!^_"
 
@@ -89,8 +90,8 @@ watch:
 
 nav:
     - Home: index.md
-    - Examples: examples.md
-    - Reference: reference/panel_full_calendar.md
+    # - Examples: examples.md
+    # - Reference: reference/panel_full_calendar.md
 
 extra:
   social:
