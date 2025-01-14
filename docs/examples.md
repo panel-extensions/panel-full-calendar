@@ -54,24 +54,11 @@ calendar.valid_range = {
 
 ## Events
 
-Events can be added through `value` as a list of dictionaries.
+In addition to setting `value` directly, events can be managed through the methods `add_event`, `remove_event`, and `update_event`. These methods allow for flexible event handling by normalizing dates internally and ensuring precise event matching.
 
-```python
-calendar.value = [
-    {
-        "start": now,
-        "end": now + datetime.timedelta(minutes=30),
-        "title": "Calendar Tutorial",
-    },
-    {
-        "start": now,
-        "allDay": True,
-        "title": "Enjoying Panel",
-    },
-]
-```
+### Adding Events
 
-Alternatively, an event can be added through the method `add_event`. Valid event keys can be found on the [FullCalendar Event Parsing docs](https://fullcalendar.io/docs/event-parsing).
+Events can be added through the `add_event` method. Valid event keys can be found in the [FullCalendar Event Parsing docs](https://fullcalendar.io/docs/event-parsing).
 
 ```python
 calendar.add_event(
@@ -84,9 +71,9 @@ calendar.add_event(
 )
 ```
 
-Note, the keys can be defined in `snake_case` or `camelCase` as long as `event_keys_auto_camel_case=True`, which pre-processes the keys into `camelCase` internally.
+Keys can be defined in either `snake_case` or `camelCase` as long as `event_keys_auto_camel_case=True`. When this setting is enabled, keys are pre-processed into `camelCase` internally.
 
-The following is equivalent to above.
+The following example is equivalent to the above but uses `snake_case` keys:
 
 ```python
 calendar.add_event(
@@ -99,7 +86,78 @@ calendar.add_event(
 )
 ```
 
-If there are many events or if the events are large, use `camelCase` and set `event_keys_auto_camel_case=False` to speed up rendering.
+For large datasets or performance-critical scenarios, using `camelCase` and setting `event_keys_auto_camel_case=False` can speed up rendering.
+
+### Removing Events
+
+The `remove_event` method allows for removing an event by matching its `start` date and `title`. Optionally, `end` and `all_day` can be specified for more precise matching.
+
+```python
+calendar.remove_event(
+    start="2024-10-22",
+    title="Bi-Weekly Event",
+)
+```
+
+Dates are normalized internally using `pandas.to_datetime` to ensure accurate matching.
+
+The input dates support multiple formats:
+
+- ISO 8601 date strings: `"2024-10-22"` or `"2024-10-22T09:00:00"`
+- Python datetime objects: `datetime(2024, 10, 22)`
+- Python date objects: `date(2024, 10, 22)`
+- Unix timestamps in milliseconds: `1698019200000`
+
+### Updating Events
+
+The `update_event` method allows modifying an existing event by identifying it through the `start` date and `title`. `end` and `all_day` can be specified for more precise matching.
+
+Additional properties can be passed as keyword arguments to update the event. If you need to update the `start` date, you must remove the event and add it again.
+
+```python
+calendar.update_event(
+    start="2024-10-22",
+    title="Bi-Weekly Event",
+    updates=dict(title="Updated Title"),
+)
+```
+
+Dates are normalized internally using `pandas.to_datetime` to ensure accurate matching.
+
+### Filtering Events
+
+The `filter_events` method allows you to search for events by their `start` date and optionally by `end` date and `all_day` status. It returns a list of all matching events.
+
+```python
+# Filter by start date only
+events = calendar.filter_events("2024-10-22")
+
+# Filter by start date and all-day status
+events = calendar.filter_events("2024-10-22", all_day=True)
+
+# Filter by start and end dates
+events = calendar.filter_events(
+    start="2024-10-22",
+    end="2024-10-23"
+)
+```
+
+Example for finding specific events:
+
+```python
+# Find all-day events on a specific date
+all_day_events = calendar.filter_events(
+    start="2024-10-22",
+    all_day=True
+)
+
+# Find timed events that end at a specific time
+timed_events = calendar.filter_events(
+    start="2024-10-22T09:00:00",
+    end="2024-10-22T10:00:00",
+    all_day=False
+)
+```
 
 ## Views
 
