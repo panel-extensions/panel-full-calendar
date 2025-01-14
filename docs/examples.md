@@ -56,7 +56,7 @@ calendar.valid_range = {
 
 In addition to setting `value` directly, events can be managed through the methods `add_event`, `remove_event`, and `update_event`. These methods allow for flexible event handling by normalizing dates internally and ensuring precise event matching.
 
-### Adding Events
+### Add
 
 Events can be added through the `add_event` method. Valid event keys can be found in the [FullCalendar Event Parsing docs](https://fullcalendar.io/docs/event-parsing).
 
@@ -88,7 +88,7 @@ calendar.add_event(
 
 For large datasets or performance-critical scenarios, using `camelCase` and setting `event_keys_auto_camel_case=False` can speed up rendering.
 
-### Removing Events
+### Remove
 
 The `remove_event` method allows for removing an event by matching its `start` date and `title`. Optionally, `end` and `all_day` can be specified for more precise matching.
 
@@ -108,7 +108,7 @@ The input dates support multiple formats:
 - Python date objects: `date(2024, 10, 22)`
 - Unix timestamps in milliseconds: `1698019200000`
 
-### Updating Events
+### Update
 
 The `update_event` method allows modifying an existing event by identifying it through the `start` date and `title`. `end` and `all_day` can be specified for more precise matching.
 
@@ -124,7 +124,7 @@ calendar.update_event(
 
 Dates are normalized internally using `pandas.to_datetime` to ensure accurate matching.
 
-### Filtering Events
+### Filter
 
 The `filter_events` method allows you to search for events by their `start` date and optionally by `end` date and `all_day` status. It returns a list of all matching events.
 
