@@ -3,6 +3,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/panel-extensions/panel-full-calendar/ci.yml?style=flat-square&branch=main)](https://github.com/panel-extensions/panel-full-calendar/actions/workflows/ci.yml)
 [![pypi-version](https://img.shields.io/pypi/v/panel-full-calendar.svg?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/panel-full-calendar)
 [![python-version](https://img.shields.io/pypi/pyversions/panel-full-calendar?logoColor=white&logo=python&style=flat-square)](https://pypi.org/project/panel-full-calendar)
+
 Extends HoloViz Panel with FullCalendar capabilities
 
 https://github.com/user-attachments/assets/cf2e77d0-bfe4-420b-872d-aba246545716
