@@ -101,6 +101,13 @@ calendar.remove_event(
 
 Dates are normalized internally using `pandas.to_datetime` to ensure accurate matching.
 
+The input dates support multiple formats:
+
+- ISO 8601 date strings: `"2024-10-22"` or `"2024-10-22T09:00:00"`
+- Python datetime objects: `datetime(2024, 10, 22)`
+- Python date objects: `date(2024, 10, 22)`
+- Unix timestamps in milliseconds: `1698019200000`
+
 ### Updating Events
 
 The `update_event` method allows modifying an existing event by identifying it through the `start` date and `title`. `end` and `all_day` can be specified for more precise matching.
@@ -116,6 +123,41 @@ calendar.update_event(
 ```
 
 Dates are normalized internally using `pandas.to_datetime` to ensure accurate matching.
+
+### Filtering Events
+
+The `filter_events` method allows you to search for events by their `start` date and optionally by `end` date and `all_day` status. It returns a list of all matching events.
+
+```python
+# Filter by start date only
+events = calendar.filter_events("2024-10-22")
+
+# Filter by start date and all-day status
+events = calendar.filter_events("2024-10-22", all_day=True)
+
+# Filter by start and end dates
+events = calendar.filter_events(
+    start="2024-10-22",
+    end="2024-10-23"
+)
+```
+
+Example for finding specific events:
+
+```python
+# Find all-day events on a specific date
+all_day_events = calendar.filter_events(
+    start="2024-10-22",
+    all_day=True
+)
+
+# Find timed events that end at a specific time
+timed_events = calendar.filter_events(
+    start="2024-10-22T09:00:00",
+    end="2024-10-22T10:00:00",
+    all_day=False
+)
+```
 
 ## Views
 
