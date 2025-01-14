@@ -103,15 +103,15 @@ Dates are normalized internally using `pandas.to_datetime` to ensure accurate ma
 
 ### Updating Events
 
-The `update_event` method allows modifying an existing event by identifying it through the `start` date and `old_title`. `old_end` and `old_all_day` can be specified for more precise matching.
+The `update_event` method allows modifying an existing event by identifying it through the `start` date and `title`. `end` and `all_day` can be specified for more precise matching.
 
 Additional properties can be passed as keyword arguments to update the event. If you need to update the `start` date, you must remove the event and add it again.
 
 ```python
 calendar.update_event(
     start="2024-10-22",
-    old_title="Bi-Weekly Event",
-    title="Updated Title",
+    title="Bi-Weekly Event",
+    updates=dict(title="Updated Title"),
 )
 ```
 

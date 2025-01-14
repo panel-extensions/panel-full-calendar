@@ -167,7 +167,7 @@ def test_update_event_simple():
             }
         ]
     )
-    calendar.update_event("2020-01-01", "original", title="updated event", location="Room 1")
+    calendar.update_event("2020-01-01", "original", updates=dict(title="updated event", location="Room 1"))
     assert calendar.value == [
         {
             "start": "2020-01-01",
@@ -194,10 +194,12 @@ def test_update_event_with_end_and_all_day():
     calendar.update_event(
         "2020-05-01",
         "conference",
-        old_end="2020-05-02",
-        old_all_day=True,
-        title="updated conference",
-        speakers=5,
+        end="2020-05-02",
+        all_day=True,
+        updates=dict(
+            title="updated conference",
+            speakers=5,
+        ),
     )
     assert calendar.value == [
         {
@@ -225,9 +227,11 @@ def test_update_event_with_end_only():
     calendar.update_event(
         "2020-06-01",
         "seminar",
-        old_end="2020-06-02",
-        title="updated seminar",
-        duration="2h",
+        end="2020-06-02",
+        updates=dict(
+            title="updated seminar",
+            duration="2h",
+        ),
     )
     assert calendar.value == [
         {
@@ -246,9 +250,11 @@ def test_update_event_with_all_day_only():
     calendar.update_event(
         "2020-07-01",
         "festival",
-        old_all_day=True,
-        title="updated festival",
-        location="Park",
+        all_day=True,
+        updates=dict(
+            title="updated festival",
+            location="Park",
+        ),
     )
     assert calendar.value == [
         {
@@ -264,7 +270,7 @@ def test_update_event_not_found():
     # Test that updating a non-existent event raises ValueError
     calendar = Calendar(value=[{"start": "2020-08-01", "title": "gala", "allDay": False}])
     with pytest.raises(ValueError):
-        calendar.update_event("2020-09-01", "nonexistent", title="should fail")
+        calendar.update_event("2020-09-01", "nonexistent", updates=dict(title="should fail"))
 
 
 def test_update_event_norm_start():
@@ -281,8 +287,10 @@ def test_update_event_norm_start():
     calendar.update_event(
         "2020-10-01T00:00:00",
         "meeting",
-        title="updated meeting",
-        location="Office",
+        updates=dict(
+            title="updated meeting",
+            location="Office",
+        ),
     )
     assert calendar.value == [
         {
@@ -293,3 +301,93 @@ def test_update_event_norm_start():
             "location": "Office",
         }
     ]
+
+
+def test_filter_events_with_start_only():
+    # Test filtering when only start date is provided
+    calendar = Calendar(
+        value=[
+            {"start": "2020-07-01", "title": "festival", "allDay": True},
+            {"start": "2020-07-01", "title": "meeting", "allDay": False},
+            {"start": "2020-07-02", "title": "concert", "allDay": True},
+        ]
+    )
+    filtered = calendar.filter_events("2020-07-01")
+    assert filtered == [
+        {"start": "2020-07-01", "title": "festival", "allDay": True},
+        {"start": "2020-07-01", "title": "meeting", "allDay": False},
+    ]
+
+
+def test_filter_events_with_all_day():
+    # Test filtering with start date and all_day parameter
+    calendar = Calendar(
+        value=[
+            {"start": "2020-08-01", "title": "conference", "allDay": True},
+            {"start": "2020-08-01", "title": "meeting", "allDay": False},
+            {"start": "2020-08-02", "title": "workshop", "allDay": True},
+        ]
+    )
+    filtered = calendar.filter_events("2020-08-01", all_day=True)
+    assert filtered == [
+        {"start": "2020-08-01", "title": "conference", "allDay": True},
+    ]
+
+
+def test_filter_events_with_end_date():
+    # Test filtering with both start and end dates
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-09-01",
+                "end": "2020-09-02",
+                "title": "seminar",
+                "allDay": False,
+            },
+            {
+                "start": "2020-09-01",
+                "end": "2020-09-03",
+                "title": "workshop",
+                "allDay": False,
+            },
+        ]
+    )
+    filtered = calendar.filter_events("2020-09-01", end="2020-09-02")
+    assert filtered == [
+        {
+            "start": "2020-09-01",
+            "end": "2020-09-02",
+            "title": "seminar",
+            "allDay": False,
+        },
+    ]
+
+
+def test_filter_events_norm_datetime():
+    # Test that different datetime formats are normalized correctly
+    calendar = Calendar(
+        value=[
+            {
+                "start": "2020-10-01",
+                "end": "2020-10-02",
+                "title": "meeting",
+                "allDay": False,
+            }
+        ]
+    )
+    filtered = calendar.filter_events("2020-10-01T00:00:00")
+    assert filtered == [
+        {
+            "start": "2020-10-01",
+            "end": "2020-10-02",
+            "title": "meeting",
+            "allDay": False,
+        }
+    ]
+
+
+def test_filter_events_no_matches():
+    # Test that filtering with no matches returns empty list
+    calendar = Calendar(value=[{"start": "2020-11-01", "title": "gala", "allDay": False}])
+    filtered = calendar.filter_events("2020-12-01")
+    assert filtered == []

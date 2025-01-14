@@ -10,6 +10,9 @@ import pandas as pd
 import param
 from panel.custom import JSComponent
 
+from .utils import to_camel_case
+from .utils import to_camel_case_keys
+
 THIS_DIR = Path(__file__).parent
 MODELS_DIR = THIS_DIR / "models"
 VIEW_DEFAULT_INCREMENTS = {
@@ -193,6 +196,14 @@ class Calendar(JSComponent):
         default=True,
         doc=(
             "Whether to automatically convert value and event keys to camelCase for convenience. "
+            "However, this can slow down the widget if there are many events or if the events are large."
+        ),
+    )
+
+    event_keys_auto_snake_case = param.Boolean(
+        default=True,
+        doc=(
+            "Whether to automatically convert value and event keys to snake_case for convenience. "
             "However, this can slow down the widget if there are many events or if the events are large."
         ),
     )
@@ -428,7 +439,7 @@ class Calendar(JSComponent):
         """Create a new Calendar widget."""
         super().__init__(**params)
         if self.event_keys_auto_camel_case:
-            self.value = [self._to_camel_case_keys(event) for event in self.value]
+            self.value = [to_camel_case_keys(event) for event in self.value]
         self.param.watch(
             self._update_options,
             [
@@ -596,7 +607,7 @@ class Calendar(JSComponent):
             **kwargs: Additional properties to set on the event. Takes precedence over other arguments.
         """
         if self.event_keys_auto_camel_case:
-            kwargs = self._to_camel_case_keys(kwargs)
+            kwargs = to_camel_case_keys(kwargs)
 
         event = {}
         if start is not None:
@@ -618,6 +629,7 @@ class Calendar(JSComponent):
         title: str,
         end: str | datetime.datetime | datetime.date | int | None = None,
         all_day: bool | None = None,
+        **kwargs,
     ) -> None:
         """
         Remove an event from the calendar.
@@ -630,7 +642,10 @@ class Calendar(JSComponent):
                 Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
                 If None, the event will be all-day.
             all_day: Whether the event is an all-day event.
+            **kwargs: CamelCase properties to match on the event.
         """
+        all_day = kwargs.pop("allDay", all_day)
+
         norm_start = pd.to_datetime(start)
         norm_end = pd.to_datetime(end) if end is not None else None
 
@@ -642,16 +657,14 @@ class Calendar(JSComponent):
                     del events[i]
                 elif end is not None and all_day is not None:
                     event_end = pd.to_datetime(event["end"])
-                    if event_end == norm_end and event["allDay"] == all_day:
+                    if event_end == norm_end and event.get("allDay") == all_day:
                         del events[i]
                 elif end is not None:
                     event_end = pd.to_datetime(event["end"])
                     if event_end == norm_end:
                         del events[i]
-                elif all_day is not None and event["allDay"] == all_day:
+                elif all_day and not event.get("end"):
                     del events[i]
-                else:
-                    raise ValueError(f"Event {title!r} not found at {norm_start}.")
                 self.value = events
                 return
         raise ValueError(f"Event {title!r} not found at {norm_start}.")
@@ -659,9 +672,10 @@ class Calendar(JSComponent):
     def update_event(
         self,
         start: str | datetime.datetime | datetime.date | int,
-        old_title: str,
-        old_end: str | datetime.datetime | datetime.date | int | None = None,
-        old_all_day: bool | None = None,
+        title: str,
+        updates: dict,
+        end: str | datetime.datetime | datetime.date | int | None = None,
+        all_day: bool | None = None,
         **kwargs,
     ) -> None:
         """
@@ -670,36 +684,93 @@ class Calendar(JSComponent):
         Args:
             start: The start date of the event.
                 Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
-            old_title: The title of the event to update.
-            old_end: The end date of the event to update.
+            title: The title of the event to update.
+            updates: Updated properties to set on the event.
+            end: The end date of the event to update.
                 Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
                 If None, the event is assumed to be all-day.
-            old_all_day: Whether the event to update is an all-day event.
-            **kwargs: Additional properties to set on the event. Takes precedence over other arguments.
+            all_day: Whether the event to update is an all-day event.
+            **kwargs: CamelCase properties to match on the event.
         """
+        if self.event_keys_auto_camel_case:
+            updates = to_camel_case_keys(updates)
+        all_day = kwargs.pop("allDay", all_day)
         norm_start = pd.to_datetime(start)
-        norm_end = pd.to_datetime(old_end) if old_end is not None else None
+        norm_end = pd.to_datetime(end) if end is not None else None
         events = deepcopy(self.value)
         for i, event in enumerate(self.value):
             event_start = pd.to_datetime(event["start"])
-            if event_start == norm_start and event["title"] == old_title:
-                if old_end is None and old_all_day is None:
-                    events[i].update(kwargs)
-                elif old_end is not None and old_all_day is not None:
+            if event_start == norm_start and event["title"] == title:
+                if end is None and all_day is None:
+                    events[i].update(updates)
+                elif end is not None and all_day is not None:
                     event_end = pd.to_datetime(event["end"])
-                    if event_end == norm_end and event["allDay"] == old_all_day:
-                        events[i].update(kwargs)
-                elif old_end is not None:
+                    if event_end == norm_end and event.get("allDay") == all_day:
+                        events[i].update(updates)
+                elif end is not None:
                     event_end = pd.to_datetime(event["end"])
                     if event_end == norm_end:
-                        events[i].update(kwargs)
-                elif old_all_day is not None and event["allDay"] == old_all_day:
-                    events[i].update(kwargs)
-                else:
-                    raise ValueError(f"Event {old_title!r} not found at {norm_start}.")
+                        events[i].update(updates)
+                elif all_day and not event.get("end"):
+                    events[i].update(updates)
                 self.value = events
                 return
-        raise ValueError(f"Event {old_title!r} not found at {norm_start}.")
+        raise ValueError(f"Event {title!r} not found at {norm_start}.")
+
+    def filter_events(
+        self,
+        start: str | datetime.datetime | datetime.date | int,
+        end: str | datetime.datetime | datetime.date | int | None = None,
+        all_day: bool | None = None,
+        **kwargs,
+    ) -> list[dict]:
+        """
+        Filter events on the calendar by start date and optionally end date and all-day status.
+
+        Args:
+            start: The start date of the events to filter.
+                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
+            end: The end date of the events to filter.
+                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
+            all_day: Whether the events to filter are all-day events; if None, will
+                return events that are and are not all-day.
+            **kwargs: CamelCase properties to match on the events.
+
+        Returns:
+            list[dict]: A list of events that match the filter criteria.
+        """
+        all_day = kwargs.pop("allDay", all_day)
+
+        # Normalize input dates to pandas Timestamp for consistent comparison
+        filter_start = pd.to_datetime(start)
+        filter_end = pd.to_datetime(end) if end is not None else None
+
+        filtered_events = []
+
+        for event in self.value:
+            event_start = pd.to_datetime(event["start"])
+            event_end = pd.to_datetime(event.get("end")) if event.get("end") is not None else None
+
+            if event_start != filter_start:
+                continue
+
+            if filter_end is not None:
+                if event_end is None or event_end != filter_end:
+                    continue
+
+            # Check all-day status if specified
+            if all_day is not None:
+                event_all_day = event.get("allDay", False)
+                if event_all_day != all_day:
+                    continue
+
+            # If we get here, the event matches all specified criteria
+            filtered_events.append(event)
+        return filtered_events
+
+    def clear_events(self) -> None:
+        """Clear all events from the calendar."""
+        self.value = []
 
     def _handle_msg(self, msg):
         if "events" in msg:
@@ -731,16 +802,9 @@ class Calendar(JSComponent):
     def _update_options(self, *events):
         updates = [
             {
-                "key": ("events" if self._to_camel_case(event.name) == "value" else self._to_camel_case(event.name)),
+                "key": ("events" if to_camel_case(event.name) == "value" else to_camel_case(event.name)),
                 "value": event.new,
             }
             for event in events
         ]
         self._send_msg({"type": "updateOptions", "updates": updates})
-
-    @staticmethod
-    def _to_camel_case(string):
-        return "".join(word.capitalize() if i else word for i, word in enumerate(string.split("_")))
-
-    def _to_camel_case_keys(self, d):
-        return {self._to_camel_case(key) if "_" in key else key: val for key, val in d.items()}
