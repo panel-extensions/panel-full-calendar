@@ -1,5 +1,9 @@
 """Utility functions for the panel_full_calendar package."""
 
+import datetime
+
+import pandas as pd
+
 
 def to_camel_case(string: str) -> str:
     """
@@ -51,3 +55,20 @@ def to_snake_case_keys(d: dict):
         dict: dictionary with snake
     """
     return {to_snake_case(key): val for key, val in d.items()}
+
+
+def normalize_datetimes(
+    dt1: str | datetime.datetime | datetime.date | int,
+    dt2: str | datetime.datetime | datetime.date | int,
+) -> pd.Timestamp | None:
+    timestamp1 = pd.to_datetime(dt1)
+    timestamp2 = pd.to_datetime(dt2)
+
+    if timestamp1.tz is not None and timestamp2.tz is not None:
+        timestamp1 = timestamp1.tz_convert("UTC")
+        timestamp2 = timestamp2.tz_convert("UTC")
+    elif timestamp1.tz is not None and timestamp2.tz is None:
+        timestamp2 = timestamp2.tz_localize(timestamp1.tz)
+    elif timestamp2.tz is not None and timestamp1.tz is None:
+        timestamp1 = timestamp1.tz_localize(timestamp2.tz)
+    return timestamp1, timestamp2
