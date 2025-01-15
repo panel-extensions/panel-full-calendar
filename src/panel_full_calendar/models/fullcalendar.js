@@ -2,20 +2,6 @@ import { Calendar } from "@fullcalendar/core"
 
 export function render({ model, el }) {
   let calendar = null;
-  function updateEventsInView() {
-    if (calendar) {
-      model.events_in_view = calendar.getEvents().map(event => {
-        const plainEvent = event.toPlainObject();
-        if (!event._def?.publicId) {
-          const defId = event._def?.defId;
-          event.setProp("id", defId);
-          console.log("Event without publicId, setting defId as id", event);
-        }
-        plainEvent.id = event._def.publicId;
-        return plainEvent;
-      });
-    }
-  }
 
   function createCalendar(plugins, interactionPlugin = null) {
     const defaultPlugins = interactionPlugin ? [interactionPlugin] : []
@@ -91,6 +77,9 @@ export function render({ model, el }) {
         selectable: model.selectable,
         dateClick(info) {
           model.send_msg({ date_click: JSON.stringify(info) })
+        },
+        eventChange(info) {
+          model.send_msg({ event_change: JSON.stringify(info) })
         },
         eventDragStart(info) {
           model.send_msg({ event_drag_start: JSON.stringify(info) })
@@ -193,7 +182,6 @@ export function render({ model, el }) {
       // Event manipulation handlers
       else if (event.type === "removeEvent") {
         const calendarEvent = calendar.getEventById(event.id);
-        console.log("calendarEvent", calendarEvent)
         if (calendarEvent) {
           calendarEvent.remove();
           updateEventsInView();
@@ -203,6 +191,7 @@ export function render({ model, el }) {
         if (calendarEvent) {
           Object.entries(event.updates).forEach(([key, value]) => {
             calendarEvent.setProp(key, value);
+            model.send_msg({ event_change: JSON.stringify({"event": calendarEvent}) });
           });
           updateEventsInView();
         }
@@ -218,24 +207,6 @@ export function render({ model, el }) {
           calendarEvent.setEnd(event.updates.end);
           updateEventsInView();
         }
-      } else if (event.type === "moveStart") {
-        const calendarEvent = calendar.getEventById(event.id);
-        if (calendarEvent) {
-          calendarEvent.moveStart(event.delta);
-          updateEventsInView();
-        }
-      } else if (event.type === "moveEnd") {
-        const calendarEvent = calendar.getEventById(event.id);
-        if (calendarEvent) {
-          calendarEvent.moveEnd(event.delta);
-          updateEventsInView();
-        }
-      } else if (event.type === "moveDates") {
-        const calendarEvent = calendar.getEventById(event.id);
-        if (calendarEvent) {
-          calendarEvent.moveDates(event.delta);
-          updateEventsInView();
-        }
       }
     })
     model.on("lifecycle:after_layout", (event) => {
@@ -243,6 +214,13 @@ export function render({ model, el }) {
     })
     calendar.render()
     return calendar
+  }
+
+  function updateEventsInView() {
+    if (calendar) {
+        const events_in_view = calendar.getEvents()
+        model.send_msg({ events_in_view: JSON.stringify(events_in_view) })
+    }
   }
 
   const plugins = []

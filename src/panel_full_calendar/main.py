@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from typing import Literal
 
-import pandas as pd
 import param
 from panel.custom import JSComponent
 
@@ -43,7 +42,7 @@ class Calendar(JSComponent):
 
     aspect_ratio = param.Number(default=None, doc="Sets the width-to-height aspect ratio of the calendar.")
 
-    business_hours = param.Dict(default={}, doc="Emphasizes certain time slots on the calendar.")
+    business_hours = param.Dict(default=None, doc="Emphasizes certain time slots on the calendar.")
 
     button_icons = param.Dict(
         default={},
@@ -157,6 +156,11 @@ class Calendar(JSComponent):
     event_border_color = param.Color(
         default=None,
         doc="Sets the border color for all events on the calendar.",
+    )
+
+    event_change_callback = param.Callable(
+        default=None,
+        doc="A callback that will be called when an event is changed.",
     )
 
     event_color = param.Color(
@@ -417,6 +421,7 @@ class Calendar(JSComponent):
         "current_date_callback": None,
         "current_view_callback": None,
         "date_click_callback": None,
+        "event_change_callback": None,
         "event_click_callback": None,
         "event_drag_start_callback": None,
         "event_drag_stop_callback": None,
@@ -427,6 +432,7 @@ class Calendar(JSComponent):
         "event_resize_stop_callback": None,
         "select_callback": None,
         "unselect_callback": None,
+        "events_in_view": None,
     }
 
     _importmap = {
@@ -442,8 +448,6 @@ class Calendar(JSComponent):
 
     def __init__(self, **params):
         """Create a new Calendar widget."""
-        if "value" in params and self.event_keys_auto_camel_case:
-            params["value"] = [to_camel_case_keys(event) for event in params["value"]]
         super().__init__(**params)
         self._buffer = []
         self.param.watch(
@@ -602,9 +606,9 @@ class Calendar(JSComponent):
         Add an event to the calendar.
 
         Args:
-            start: The start date of the event.
+            start: The start of the event.
                 Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
-            end: The end date of the event.
+            end: The end of the event.
                 Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
                 If None, the event will be all-day.
             title: The title of the event.
@@ -629,46 +633,61 @@ class Calendar(JSComponent):
         event.update(kwargs)
         self.value = self.value + [event]
 
+    def add_events(self, events: list[dict]) -> None:
+        """
+        Add multiple events to the calendar.
+
+        Args:
+            events: A list of events to add to the calendar.
+        """
+        with param.parameterized.batch_call_watchers(self):
+            for event in events:
+                self.add_event(**event)
+
     def get_event_in_view(
         self,
         start: str | datetime.datetime | datetime.date | int,
         title: str,
         match_by_time: bool = False,
-    ) -> "Event":
+    ) -> "CalendarEvent":
         """
         Get an event from the calendar.
 
         Args:
-            start: The start date of the event.
+            start: The start of the event.
                 Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
             title: The title of the event.
             match_by_time: Whether to match the start time exactly, or by date only.
 
         Returns:
-            Event: The event with the given start date and title.
+            Event: The event with the given start and title.
         """
-        for event in self.events_in_view:
-            norm_start, event_start = normalize_datetimes(start, event["start"])
+        for event in self.events_in_view:  # type: ignore
+            norm_start, event_start = normalize_datetimes(start, event["start"])  # type: ignore
             if match_by_time:
                 norm_start = norm_start.date()
                 event_start = event_start.date()
             if norm_start != event_start or event["title"] != title:
                 continue
-            return Event(
+            return CalendarEvent(
                 id=event["id"],
                 title=event["title"],
                 start=event["start"],
                 end=event["end"],
                 calendar=self,
             )
-        raise ValueError(f"No event found with start date {start} and title {title}.")
+        raise ValueError(f"No event found with start {start} and title {title}.")
 
     def clear_events(self) -> None:
         """Clear all events from the calendar."""
         self.value = []
 
     def _handle_msg(self, msg):
-        if "current_date" in msg:
+        if "events_in_view" in msg:
+            events = json.loads(msg["events_in_view"])
+            with param.edit_constant(self):
+                self.events_in_view = events
+        elif "current_date" in msg:
             current_date_info = json.loads(msg["current_date"])
             with param.edit_constant(self):
                 self.current_date = current_date_info["startStr"]
@@ -683,9 +702,18 @@ class Calendar(JSComponent):
         else:
             key = list(msg.keys())[0]
             callback_name = f"{key}_callback"
-            callback = getattr(self, callback_name, None)
-            if callback:
-                callback(json.loads(msg[key]))
+            if hasattr(self, callback_name):
+                info = json.loads(msg[key])
+                if callback_name == "event_change_callback":
+                    new_event = info["event"]
+                    for value in self.value:
+                        if value["id"] == new_event["id"]:
+                            value.update(new_event)
+                            break
+                    self.param.trigger("value")
+                callback = getattr(self, callback_name)
+                if callback:
+                    callback(info)
             else:
                 raise RuntimeError(f"Unhandled message: {msg}")
 
@@ -701,23 +729,30 @@ class Calendar(JSComponent):
 
     @param.depends("value", watch=True)
     async def _update_events_in_view(self):
-        await asyncio.sleep(0.01)
+        for event in self.value:
+            event["id"] = event.get("id", str(id(event)))
+            if self.event_keys_auto_camel_case:
+                for key in list(event.keys()):
+                    event[to_camel_case(key)] = event.pop(key)
+        await asyncio.sleep(0.001)  # needed to prevent race condition
         self._send_msg({"type": "updateEventsInView"})
 
 
-class Event(param.Parameterized):
+class CalendarEvent(param.Parameterized):
+    """A class representing an event on a Calendar."""
+
     id: str = param.String(default=None, doc="A unique identifier for the event.", constant=True)
 
     start = param.String(
         default=None,
         constant=True,
-        doc="The start date/time of the event. Supports ISO 8601 date strings.",
+        doc="The start of the event. Supports ISO 8601 date strings.",
     )
 
     end = param.String(
         default=None,
         constant=True,
-        doc="The end date/time of the event. Supports ISO 8601 date strings.",
+        doc="The end of the event. Supports ISO 8601 date strings.",
     )
 
     title = param.String(default="(no title)", constant=True, doc="The title of the event.")
@@ -751,38 +786,29 @@ class Event(param.Parameterized):
             self.props = {**self.props, **kwargs}
 
     def set_start(self, start: str | datetime.datetime | datetime.date | int):
-        """Update the start date/time of the event."""
+        """Update the start of the event."""
         self.calendar._send_msg({"type": "setStart", "id": self.id, "updates": {"start": start}})
         with param.edit_constant(self):
             self.start = start
 
     def set_end(self, end: str | datetime.datetime | datetime.date | int):
-        """Update the end date/time of the event."""
+        """Update the end of the event."""
         self.calendar._send_msg({"type": "setEnd", "id": self.id, "updates": {"end": end}})
         with param.edit_constant(self):
             self.end = end
 
-    def move_start(self, delta: str | datetime.timedelta):
-        """Move the start date/time of the event by a specific amount."""
-        self.calendar._send_msg({"type": "moveStart", "id": self.id, "delta": delta})
-        with param.edit_constant(self):
-            self.start = pd.to_datetime(self.start) + pd.to_timedelta(delta)
-
-    def move_end(self, delta):
-        """Move the end date/time of the event by a specific amount."""
-        self.calendar._send_msg({"type": "moveEnd", "id": self.id, "delta": delta})
-        with param.edit_constant(self):
-            self.end = pd.to_datetime(self.end) + pd.to_timedelta(delta)
-
-    def move_dates(self, delta):
-        """Move the start and end date/times of the event by a specific amount."""
-        self.calendar._send_msg({"type": "moveDates", "id": self.id, "delta": delta})
-        with param.edit_constant(self):
-            self.start = pd.to_datetime(self.start) + pd.to_timedelta(delta)
-            self.end = pd.to_datetime(self.end) + pd.to_timedelta(delta)
-
     @classmethod
-    def from_dict(cls, event_dict, calendar):
+    def from_dict(cls, event_dict: dict, calendar: Calendar):
+        """
+        Create a CalendarEvent from a dictionary.
+
+        Args:
+            event_dict: A dictionary representing the event.
+            calendar: The calendar that the event belongs to.
+
+        Returns:
+            CalendarEvent: The event.
+        """
         return cls(
             id=event_dict.pop("id"),
             title=event_dict.pop("title", "(no title)"),
@@ -792,3 +818,9 @@ class Event(param.Parameterized):
             props=event_dict,
             calendar=calendar,
         )
+
+    def __repr__(self):
+        """Return a simplified string representation of the event."""
+        attributes = [f"{p[0]}={p[1]}" for p in self.param.get_param_values() if p[1] is not None and p[0] not in ("calendar", "name")]
+        attributes_str = ", ".join(attributes)
+        return f"CalendarEvent({attributes_str})"
