@@ -1,8 +1,8 @@
 """Implements FullCalendar within Panel."""
 
+import asyncio
 import datetime
 import json
-from copy import deepcopy
 from pathlib import Path
 from typing import Literal
 
@@ -10,12 +10,13 @@ import pandas as pd
 import param
 from panel.custom import JSComponent
 
+from .utils import normalize_datetimes
 from .utils import to_camel_case
 from .utils import to_camel_case_keys
 
 THIS_DIR = Path(__file__).parent
 MODELS_DIR = THIS_DIR / "models"
-VIEW_DEFAULT_INCREMENTS = {
+VIEW_DEFAULT_deltaS = {
     "dayGridMonth": {"days": 1},
     "dayGridWeek": {"weeks": 1},
     "dayGridDay": {"days": 1},
@@ -94,7 +95,7 @@ class Calendar(JSComponent):
         doc="A callback that will be called when a date is clicked.",
     )
 
-    date_increment = param.String(
+    date_delta = param.String(
         default=None,
         doc="The duration to move forward/backward when prev/next is clicked.",
     )
@@ -140,6 +141,12 @@ class Calendar(JSComponent):
     editable = param.Boolean(
         default=False,
         doc="Determines whether the events on the calendar can be modified.",
+    )
+
+    events_in_view = param.List(
+        default=[],
+        doc="List of events that are currently in view on the calendar.",
+        constant=True,
     )
 
     event_background_color = param.Color(
@@ -405,8 +412,6 @@ class Calendar(JSComponent):
 
     _esm = MODELS_DIR / "fullcalendar.js"
 
-    _syncing = param.Boolean(default=False)
-
     _rename = {
         # callbacks are handled in _handle_msg getattr
         "current_date_callback": None,
@@ -437,9 +442,10 @@ class Calendar(JSComponent):
 
     def __init__(self, **params):
         """Create a new Calendar widget."""
+        if "value" in params and self.event_keys_auto_camel_case:
+            params["value"] = [to_camel_case_keys(event) for event in params["value"]]
         super().__init__(**params)
-        if self.event_keys_auto_camel_case:
-            self.value = [to_camel_case_keys(event) for event in self.value]
+        self._buffer = []
         self.param.watch(
             self._update_options,
             [
@@ -449,7 +455,7 @@ class Calendar(JSComponent):
                 "button_icons",
                 "button_text",
                 "date_alignment",
-                "date_increment",
+                "date_delta",
                 "day_max_event_rows",
                 "day_max_events",
                 "day_popover_format",
@@ -547,18 +553,18 @@ class Calendar(JSComponent):
         """
         self._send_msg({"type": "gotoDate", "date": date})
 
-    def increment_date(self, increment: str | datetime.timedelta | int | dict | None = None) -> None:
+    def delta_date(self, delta: str | datetime.timedelta | int | dict | None = None) -> None:
         """
-        Increment the current date by a specific amount.
+        delta the current date by a specific amount.
 
         Args:
-            increment: The amount to increment the current date by.
+            delta: The amount to delta the current date by.
                 Supports a string in the format hh:mm:ss.sss, hh:mm:sss or hh:mm, an int in milliseconds,
                 datetime.timedelta objects, or a dict with any of the following keys:
                     year, years, month, months, day, days, minute, minutes, second,
                     seconds, millisecond, milliseconds, ms.
-                If not provided, the date_increment parameter will be used.
-                If date_increment is not set, the default increment for the current view will be used:
+                If not provided, the date_delta parameter will be used.
+                If date_delta is not set, the default delta for the current view will be used:
                     dayGridMonth: {"days": 1}
                     dayGridWeek: {"weeks": 1}
                     dayGridDay: {"days": 1}
@@ -569,9 +575,9 @@ class Calendar(JSComponent):
                     listYear: {"years": 1}
                     multiMonthYear: {"years": 1}
         """
-        if increment is None and self.date_increment is None:
-            increment = VIEW_DEFAULT_INCREMENTS[self.current_view]
-        self._send_msg({"type": "incrementDate", "increment": increment})
+        if delta is None and self.date_delta is None:
+            delta = VIEW_DEFAULT_deltaS[self.current_view]
+        self._send_msg({"type": "deltaDate", "delta": delta})
 
     def scroll_to_time(self, time: str | datetime.time | int) -> None:
         """
@@ -623,160 +629,46 @@ class Calendar(JSComponent):
         event.update(kwargs)
         self.value = self.value + [event]
 
-    def remove_event(
+    def get_event_in_view(
         self,
         start: str | datetime.datetime | datetime.date | int,
         title: str,
-        end: str | datetime.datetime | datetime.date | int | None = None,
-        all_day: bool | None = None,
-        **kwargs,
-    ) -> None:
+        match_by_time: bool = False,
+    ) -> "Event":
         """
-        Remove an event from the calendar.
+        Get an event from the calendar.
 
         Args:
             start: The start date of the event.
                 Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
             title: The title of the event.
-            end: The end date of the event.
-                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
-                If None, the event will be all-day.
-            all_day: Whether the event is an all-day event.
-            **kwargs: CamelCase properties to match on the event.
-        """
-        all_day = kwargs.pop("allDay", all_day)
-
-        norm_start = pd.to_datetime(start)
-        norm_end = pd.to_datetime(end) if end is not None else None
-
-        events = self.value.copy()
-        for i, event in enumerate(self.value):
-            event_start = pd.to_datetime(event["start"])
-            if event_start == norm_start and event["title"] == title:
-                if end is None and all_day is None:
-                    del events[i]
-                elif end is not None and all_day is not None:
-                    event_end = pd.to_datetime(event["end"])
-                    if event_end == norm_end and event.get("allDay") == all_day:
-                        del events[i]
-                elif end is not None:
-                    event_end = pd.to_datetime(event["end"])
-                    if event_end == norm_end:
-                        del events[i]
-                elif all_day and not event.get("end"):
-                    del events[i]
-                self.value = events
-                return
-        raise ValueError(f"Event {title!r} not found at {norm_start}.")
-
-    def update_event(
-        self,
-        start: str | datetime.datetime | datetime.date | int,
-        title: str,
-        updates: dict,
-        end: str | datetime.datetime | datetime.date | int | None = None,
-        all_day: bool | None = None,
-        **kwargs,
-    ) -> None:
-        """
-        Update an event on the calendar by looking up its start date and title.
-
-        Args:
-            start: The start date of the event.
-                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
-            title: The title of the event to update.
-            updates: Updated properties to set on the event.
-            end: The end date of the event to update.
-                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
-                If None, the event is assumed to be all-day.
-            all_day: Whether the event to update is an all-day event.
-            **kwargs: CamelCase properties to match on the event.
-        """
-        if self.event_keys_auto_camel_case:
-            updates = to_camel_case_keys(updates)
-        all_day = kwargs.pop("allDay", all_day)
-        norm_start = pd.to_datetime(start)
-        norm_end = pd.to_datetime(end) if end is not None else None
-        events = deepcopy(self.value)
-        for i, event in enumerate(self.value):
-            event_start = pd.to_datetime(event["start"])
-            if event_start == norm_start and event["title"] == title:
-                if end is None and all_day is None:
-                    events[i].update(updates)
-                elif end is not None and all_day is not None:
-                    event_end = pd.to_datetime(event["end"])
-                    if event_end == norm_end and event.get("allDay") == all_day:
-                        events[i].update(updates)
-                elif end is not None:
-                    event_end = pd.to_datetime(event["end"])
-                    if event_end == norm_end:
-                        events[i].update(updates)
-                elif all_day and not event.get("end"):
-                    events[i].update(updates)
-                self.value = events
-                return
-        raise ValueError(f"Event {title!r} not found at {norm_start}.")
-
-    def filter_events(
-        self,
-        start: str | datetime.datetime | datetime.date | int,
-        end: str | datetime.datetime | datetime.date | int | None = None,
-        all_day: bool | None = None,
-        **kwargs,
-    ) -> list[dict]:
-        """
-        Filter events on the calendar by start date and optionally end date and all-day status.
-
-        Args:
-            start: The start date of the events to filter.
-                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
-            end: The end date of the events to filter.
-                Supports ISO 8601 date strings, datetime/date objects, and int in milliseconds.
-            all_day: Whether the events to filter are all-day events; if None, will
-                return events that are and are not all-day.
-            **kwargs: CamelCase properties to match on the events.
+            match_by_time: Whether to match the start time exactly, or by date only.
 
         Returns:
-            list[dict]: A list of events that match the filter criteria.
+            Event: The event with the given start date and title.
         """
-        all_day = kwargs.pop("allDay", all_day)
-
-        # Normalize input dates to pandas Timestamp for consistent comparison
-        filter_start = pd.to_datetime(start)
-        filter_end = pd.to_datetime(end) if end is not None else None
-
-        filtered_events = []
-
-        for event in self.value:
-            event_start = pd.to_datetime(event["start"])
-            event_end = pd.to_datetime(event.get("end")) if event.get("end") is not None else None
-
-            if event_start != filter_start:
+        for event in self.events_in_view:
+            norm_start, event_start = normalize_datetimes(start, event["start"])
+            if match_by_time:
+                norm_start = norm_start.date()
+                event_start = event_start.date()
+            if norm_start != event_start or event["title"] != title:
                 continue
-
-            if filter_end is not None:
-                if event_end is None or event_end != filter_end:
-                    continue
-
-            # Check all-day status if specified
-            if all_day is not None:
-                event_all_day = event.get("allDay", False)
-                if event_all_day != all_day:
-                    continue
-
-            # If we get here, the event matches all specified criteria
-            filtered_events.append(event)
-        return filtered_events
+            return Event(
+                id=event["id"],
+                title=event["title"],
+                start=event["start"],
+                end=event["end"],
+                calendar=self,
+            )
+        raise ValueError(f"No event found with start date {start} and title {title}.")
 
     def clear_events(self) -> None:
         """Clear all events from the calendar."""
         self.value = []
 
     def _handle_msg(self, msg):
-        if "events" in msg:
-            with param.edit_constant(self):
-                self.events = json.loads(msg["events"])
-        elif "current_date" in msg:
+        if "current_date" in msg:
             current_date_info = json.loads(msg["current_date"])
             with param.edit_constant(self):
                 self.current_date = current_date_info["startStr"]
@@ -794,10 +686,8 @@ class Calendar(JSComponent):
             callback = getattr(self, callback_name, None)
             if callback:
                 callback(json.loads(msg[key]))
-
-    @param.depends("value", watch=True, on_init=True)
-    def _update_events(self):
-        self._send_msg({"type": "updateEvents", "value": self.value})
+            else:
+                raise RuntimeError(f"Unhandled message: {msg}")
 
     def _update_options(self, *events):
         updates = [
@@ -808,3 +698,97 @@ class Calendar(JSComponent):
             for event in events
         ]
         self._send_msg({"type": "updateOptions", "updates": updates})
+
+    @param.depends("value", watch=True)
+    async def _update_events_in_view(self):
+        await asyncio.sleep(0.01)
+        self._send_msg({"type": "updateEventsInView"})
+
+
+class Event(param.Parameterized):
+    id: str = param.String(default=None, doc="A unique identifier for the event.", constant=True)
+
+    start = param.String(
+        default=None,
+        constant=True,
+        doc="The start date/time of the event. Supports ISO 8601 date strings.",
+    )
+
+    end = param.String(
+        default=None,
+        constant=True,
+        doc="The end date/time of the event. Supports ISO 8601 date strings.",
+    )
+
+    title = param.String(default="(no title)", constant=True, doc="The title of the event.")
+
+    all_day = param.Boolean(default=False, constant=True, doc="Whether the event is an all-day event.")
+
+    props = param.Dict(
+        default={},
+        constant=True,
+        doc="Additional properties of the event.",
+    )
+
+    calendar = param.ClassSelector(
+        class_=Calendar,
+        constant=True,
+        doc="The calendar that the event belongs to.",
+    )
+
+    def remove(self):
+        """Remove the event from the calendar."""
+        self.calendar._send_msg({"type": "removeEvent", "id": self.id})
+
+    def set_props(self, **kwargs):
+        """Modifies any of the non-date-related properties of the event."""
+        self.calendar._send_msg({"type": "setProp", "id": self.id, "updates": kwargs})
+        with param.edit_constant(self):
+            if "title" in kwargs:
+                self.title = kwargs.pop("title")
+            if "allDay" in kwargs:
+                self.all_day = kwargs.pop("allDay")
+            self.props = {**self.props, **kwargs}
+
+    def set_start(self, start: str | datetime.datetime | datetime.date | int):
+        """Update the start date/time of the event."""
+        self.calendar._send_msg({"type": "setStart", "id": self.id, "updates": {"start": start}})
+        with param.edit_constant(self):
+            self.start = start
+
+    def set_end(self, end: str | datetime.datetime | datetime.date | int):
+        """Update the end date/time of the event."""
+        self.calendar._send_msg({"type": "setEnd", "id": self.id, "updates": {"end": end}})
+        with param.edit_constant(self):
+            self.end = end
+
+    def move_start(self, delta: str | datetime.timedelta):
+        """Move the start date/time of the event by a specific amount."""
+        self.calendar._send_msg({"type": "moveStart", "id": self.id, "delta": delta})
+        with param.edit_constant(self):
+            self.start = pd.to_datetime(self.start) + pd.to_timedelta(delta)
+
+    def move_end(self, delta):
+        """Move the end date/time of the event by a specific amount."""
+        self.calendar._send_msg({"type": "moveEnd", "id": self.id, "delta": delta})
+        with param.edit_constant(self):
+            self.end = pd.to_datetime(self.end) + pd.to_timedelta(delta)
+
+    def move_dates(self, delta):
+        """Move the start and end date/times of the event by a specific amount."""
+        self.calendar._send_msg({"type": "moveDates", "id": self.id, "delta": delta})
+        with param.edit_constant(self):
+            self.start = pd.to_datetime(self.start) + pd.to_timedelta(delta)
+            self.end = pd.to_datetime(self.end) + pd.to_timedelta(delta)
+
+    @classmethod
+    def from_dict(cls, event_dict, calendar):
+        return cls(
+            id=event_dict.pop("id"),
+            title=event_dict.pop("title", "(no title)"),
+            start=event_dict.pop("start"),
+            end=event_dict.pop("end", None),
+            all_day=event_dict.pop("allDay", False),
+            props=event_dict,
+            calendar=calendar,
+        )
