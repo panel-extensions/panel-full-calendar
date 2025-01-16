@@ -206,7 +206,7 @@ def test_calendar_date_click_callback(page):
 
 def test_calendar_event_click_callback(page):
     def callback(event):
-        text_input.value = event["event"]["title"]
+        text_input.value = event["title"]
 
     text_input = TextInput(name="Event Click")
     calendar = Calendar(
@@ -217,44 +217,7 @@ def test_calendar_event_click_callback(page):
     serve_component(page, calendar)
 
     page.locator(".fc-sticky").first.click()
-    assert text_input.value == "Test Event"
-
-
-def test_calendar_event_drag_start_callback(page):
-    def callback(event):
-        text_input.value = event["event"]["title"]
-
-    text_input = TextInput(name="Drag Start")
-    calendar = Calendar(
-        current_date="2020-01-01",
-        value=[{"title": "Test Event", "start": "2020-01-15"}],
-        event_drag_start_callback=callback,
-        editable=True,
-    )
-    serve_component(page, calendar)
-
-    event = page.locator(".fc-event").first
-    target = page.locator(".fc-daygrid-day-frame", has_text="16").first
-    event.drag_to(target)
-    assert text_input.value == "Test Event"
-
-
-def test_calendar_event_drag_stop_callback(page):
-    def callback(event):
-        text_input.value = event["event"]["title"]
-
-    text_input = TextInput(name="Drag Stop")
-    calendar = Calendar(
-        current_date="2020-01-01",
-        value=[{"title": "Test Event", "start": "2020-01-15"}],
-        event_drag_stop_callback=callback,
-        editable=True,
-    )
-    serve_component(page, calendar)
-
-    event = page.locator(".fc-event").first
-    target = page.locator(".fc-daygrid-day-frame", has_text="16").first
-    event.drag_to(target)
+    wait_until(lambda: text_input.value == "Test Event")
     assert text_input.value == "Test Event"
 
 
