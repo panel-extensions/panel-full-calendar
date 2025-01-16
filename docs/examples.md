@@ -1,20 +1,32 @@
 # Examples
 
 ```{.python pycafe-embed pycafe-embed-style="border: 1px solid #e6e6e6; border-radius: 8px;" pycafe-embed-width="100%" pycafe-embed-height="400px" pycafe-embed-scale="1.0"}
+import datetime
 import panel as pn
-
 from panel_full_calendar import Calendar
 
 pn.extension()
 
-def update_date_clicked(event):
+def update_date_clicked(event_dict):
     date_clicked.object = f"Date clicked: {event['startStr']}"
 
+def update_event_title(event_dict):
+    event = CalendarEvent.from_dict(event_dict, calendar)
+    if "❌" in event.title:
+        title = event.title.replace("❌", "✅")
+    else:
+        title = event.title.replace("✅", "❌")
+    event.set_props(title=title)
 
+now = datetime.datetime.now()
 date_clicked = pn.pane.Markdown()
 calendar = Calendar(
+    value=[
+        {"title": "❌ Toggle me!", "start": now},
+    ],
     selectable=True,
     select_callback=update_date_clicked,
+    event_click_callback=update_event_title,
     sizing_mode="stretch_width",
 )
 pn.Column(date_clicked, calendar).servable()
@@ -54,11 +66,11 @@ calendar.valid_range = {
 
 ## Events
 
-In addition to setting `value` directly, events can be managed through the methods `add_event`, `remove_event`, and `update_event`. These methods allow for flexible event handling by normalizing dates internally and ensuring precise event matching.
+In addition to setting `value` directly, events can be managed through the methods `add_event`, `add_events`, `remove_event`, `update_event`, `get_event_in_view`, and `clear_events`. These methods allow for flexible event handling by normalizing dates internally and ensuring precise event matching.
 
-### Add
+### Add Events
 
-Events can be added through the `add_event` method. Valid event keys can be found in the [FullCalendar Event Parsing docs](https://fullcalendar.io/docs/event-parsing).
+An individual event can be added using the `add_event` method.
 
 ```python
 calendar.add_event(
@@ -71,92 +83,66 @@ calendar.add_event(
 )
 ```
 
-Keys can be defined in either `snake_case` or `camelCase` as long as `event_keys_auto_camel_case=True`. When this setting is enabled, keys are pre-processed into `camelCase` internally.
+### Add Multiple Events
 
-The following example is equivalent to the above but uses `snake_case` keys:
+Multiple events can be added simultaneously using the `add_events` method.
 
 ```python
-calendar.add_event(
-    title="Bi-Weekly Event",
-    start_recur="2024-10-22",
-    days_of_week=[2],
-    start_time="06:30:00",
-    end_time="07:30:00",
-    duration="01:00",
-)
+calendar.add_events([
+    {
+        "title": "Bi-Weekly Event",
+        "startRecur": "2024-10-22",
+        "daysOfWeek": [2],  # 2 represents Tuesday (0 = Sunday, 1 = Monday, ...)
+        "startTime": "06:30:00",
+        "endTime": "07:30:00",
+        "duration": "01:00",
+    },
+    {
+        "title": "Monthly Meeting",
+        "start": "2024-11-01T10:00:00",
+        "end": "2024-11-01T11:00:00",
+    }
+])
 ```
 
-For large datasets or performance-critical scenarios, using `camelCase` and setting `event_keys_auto_camel_case=False` can speed up rendering.
+The `add_events` method accepts a list of dictionaries, each representing an event. Event keys can be provided in either `snake_case` or `camelCase`, with automatic conversion available if `event_keys_auto_camel_case=True`.
 
-### Remove
+### Retrieve Events
 
-The `remove_event` method allows for removing an event by matching its `start` date and `title`. Optionally, `end` and `all_day` can be specified for more precise matching.
+Events can be retrieved using the `get_event_in_view` method. This method allows searching for events by start date and title, with optional precise time matching. Retrieved events are returned as `CalendarEvent` objects, which provide a convenient way to interact with individual events in the calendar.
 
 ```python
-calendar.remove_event(
-    start="2024-10-22",
-    title="Bi-Weekly Event",
-)
+from datetime import datetime
+
+try:
+    event = calendar.get_event_in_view(
+        start=datetime(2024, 10, 22),
+        title="Bi-Weekly Event",
+        match_by_time=False,
+    )
+    print("Event found:", event)
+    # Modifying the retrieved event
+    event.set_start("2024-10-22T12:00:00")
+    event.set_end("2024-10-22T13:00:00")
+except ValueError as e:
+    print(e)
 ```
 
-Dates are normalized internally using `pandas.to_datetime` to ensure accurate matching.
-
-The input dates support multiple formats:
-
-- ISO 8601 date strings: `"2024-10-22"` or `"2024-10-22T09:00:00"`
-- Python datetime objects: `datetime(2024, 10, 22)`
-- Python date objects: `date(2024, 10, 22)`
-- Unix timestamps in milliseconds: `1698019200000`
-
-### Update
-
-The `update_event` method allows modifying an existing event by identifying it through the `start` date and `title`. `end` and `all_day` can be specified for more precise matching.
-
-Additional properties can be passed as keyword arguments to update the event. If you need to update the `start` date, you must remove the event and add it again.
+Events retrieved using `get_event_in_view` return `CalendarEvent` objects, allowing for easy modification and interaction with the calendar.
 
 ```python
-calendar.update_event(
-    start="2024-10-22",
-    title="Bi-Weekly Event",
-    updates=dict(title="Updated Title"),
-)
+calendar_event.set_props(title="New title")
+calendar_event.set_start("2024-11-10T13:00:00")
+calendar_event.set_end("2024-11-10T16:00:00")
+calendar_event.remove()
 ```
 
-Dates are normalized internally using `pandas.to_datetime` to ensure accurate matching.
+### Clear Events
 
-### Filter
-
-The `filter_events` method allows you to search for events by their `start` date and optionally by `end` date and `all_day` status. It returns a list of all matching events.
+All events can be cleared from the calendar using the `clear_events` method.
 
 ```python
-# Filter by start date only
-events = calendar.filter_events("2024-10-22")
-
-# Filter by start date and all-day status
-events = calendar.filter_events("2024-10-22", all_day=True)
-
-# Filter by start and end dates
-events = calendar.filter_events(
-    start="2024-10-22",
-    end="2024-10-23"
-)
-```
-
-Example for finding specific events:
-
-```python
-# Find all-day events on a specific date
-all_day_events = calendar.filter_events(
-    start="2024-10-22",
-    all_day=True
-)
-
-# Find timed events that end at a specific time
-timed_events = calendar.filter_events(
-    start="2024-10-22T09:00:00",
-    end="2024-10-22T10:00:00",
-    all_day=False
-)
+calendar.clear_events()
 ```
 
 ## Views

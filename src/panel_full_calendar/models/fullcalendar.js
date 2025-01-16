@@ -1,6 +1,8 @@
-import {Calendar} from "@fullcalendar/core"
+import { Calendar } from "@fullcalendar/core"
 
-export function render({model, el}) {
+export function render({ model, el }) {
+  let calendar = null;
+
   function createCalendar(plugins, interactionPlugin = null) {
     const defaultPlugins = interactionPlugin ? [interactionPlugin] : []
 
@@ -53,13 +55,13 @@ export function render({model, el}) {
       validRange: model.valid_range,
       windowResizeDelay: model.window_resize_delay,
       datesSet(info) {
-        model.send_msg({current_date: JSON.stringify(info)})
+        model.send_msg({ current_date: JSON.stringify(info) })
       },
       eventClick(info) {
-        model.send_msg({event_click: JSON.stringify(info)})
+        model.send_msg({ event_click: JSON.stringify(info.event) })
       },
       viewClassNames(info) {
-        model.send_msg({current_view: JSON.stringify(info)})
+        model.send_msg({ current_view: JSON.stringify(info) })
       },
       navLinkDayClick(date, jsEvent) {
         calendar.changeView("timeGridDay", date)
@@ -74,34 +76,37 @@ export function render({model, el}) {
         editable: model.editable,
         selectable: model.selectable,
         dateClick(info) {
-          model.send_msg({date_click: JSON.stringify(info)})
+          model.send_msg({ date_click: JSON.stringify(info) })
+        },
+        eventChange(info) {
+          model.send_msg({ event_change: JSON.stringify(info) })
         },
         eventDragStart(info) {
-          model.send_msg({event_drag_start: JSON.stringify(info)})
+          model.send_msg({ event_drag_start: JSON.stringify(info) })
         },
         eventDragStop(info) {
-          model.send_msg({event_drag_stop: JSON.stringify(info)})
+          model.send_msg({ event_drag_stop: JSON.stringify(info) })
         },
         eventDrop(info) {
-          model.send_msg({event_drop: JSON.stringify(info)})
+          model.send_msg({ event_drop: JSON.stringify(info) })
         },
         eventRemove(info) {
-          model.send_msg({event_remove: JSON.stringify(info)})
+          model.send_msg({ event_remove: JSON.stringify(info) })
         },
         eventResize(info) {
-          model.send_msg({event_resize: JSON.stringify(info)})
+          model.send_msg({ event_resize: JSON.stringify(info) })
         },
         eventResizeStart(info) {
-          model.send_msg({event_resize_start: JSON.stringify(info)})
+          model.send_msg({ event_resize_start: JSON.stringify(info) })
         },
         eventResizeStop(info) {
-          model.send_msg({event_resize_stop: JSON.stringify(info)})
+          model.send_msg({ event_resize_stop: JSON.stringify(info) })
         },
         select(info) {
-          model.send_msg({select: JSON.stringify(info)})
+          model.send_msg({ select: JSON.stringify(info) })
         },
         unselect(info) {
-          model.send_msg({unselect: JSON.stringify(info)})
+          model.send_msg({ unselect: JSON.stringify(info) })
         },
       })
     }
@@ -146,7 +151,6 @@ export function render({model, el}) {
     if (model.aspect_ratio) {
       calendar.setOption("aspectRatio", model.aspect_ratio)
     }
-
     model.on("msg:custom", (event) => {
       if (event.type === "next") {
         calendar.next()
@@ -164,7 +168,7 @@ export function render({model, el}) {
         calendar.incrementDate(event.increment)
       } else if (event.type === "updateOptions") {
         calendar.pauseRendering()
-        event.updates.forEach(({key, value}) => {
+        event.updates.forEach(({ key, value }) => {
           calendar.setOption(key, value)
         })
         calendar.resumeRendering()
@@ -172,9 +176,59 @@ export function render({model, el}) {
         calendar.changeView(event.view, event.date)
       } else if (event.type === "scrollToTime") {
         calendar.scrollToTime(event.time)
+      } else if (event.type === "updateEventsInView") {
+        updateEventsInView()
+      }
+      // Event manipulation handlers
+      else if (event.type === "removeEvent") {
+        const calendarEvent = calendar.getEventById(event.id);
+        if (calendarEvent) {
+          calendarEvent.remove();
+          model.send_msg({ event_remove: JSON.stringify({"event": calendarEvent}) });
+          updateEventsInView()
+        }
+      } else if (event.type === "setProp") {
+        const calendarEvent = calendar.getEventById(event.id);
+        if (calendarEvent) {
+          Object.entries(event.updates).forEach(([key, value]) => {
+            calendarEvent.setProp(key, value);
+            updateEvent(calendarEvent)
+          });
+        }
+      } else if (event.type === "setStart") {
+        const calendarEvent = calendar.getEventById(event.id);
+        if (calendarEvent) {
+          calendarEvent.setStart(event.updates.start);
+          updateEvent(calendarEvent)
+        }
+      } else if (event.type === "setEnd") {
+        const calendarEvent = calendar.getEventById(event.id);
+        if (calendarEvent) {
+          calendarEvent.setEnd(event.updates.end);
+          updateEvent(calendarEvent)
+        }
       }
     })
+    model.on("lifecycle:after_layout", (event) => {
+      updateEventsInView()
+    })
     calendar.render()
+    return calendar
+  }
+
+  function updateEvent(calendarEvent) {
+    if (calendar) {
+      updateEventsInView();
+      console.log("event_change", calendarEvent)
+      model.send_msg({ event_change: JSON.stringify({"event": calendarEvent}) });
+    }
+  }
+
+  function updateEventsInView() {
+    if (calendar) {
+      const events_in_view = calendar.getEvents()
+      model.send_msg({ events_in_view: JSON.stringify(events_in_view) })
+    }
   }
 
   const plugins = []
@@ -204,6 +258,6 @@ export function render({model, el}) {
   Promise.all([...pluginPromises, interactionPromise])
     .then(([interactionPlugin, ...loadedPlugins]) => {
       const filteredPlugins = loadedPlugins.filter(plugin => plugin !== null)
-      createCalendar(filteredPlugins, interactionPlugin)
+      calendar = createCalendar(filteredPlugins, interactionPlugin)
     })
 }

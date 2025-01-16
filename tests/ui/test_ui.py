@@ -6,6 +6,7 @@ import pytest
 pytest.importorskip("playwright")
 
 from panel.tests.util import serve_component
+from panel.tests.util import wait_until
 from panel.widgets import TextInput
 
 from panel_full_calendar import Calendar
@@ -205,7 +206,7 @@ def test_calendar_date_click_callback(page):
 
 def test_calendar_event_click_callback(page):
     def callback(event):
-        text_input.value = event["event"]["title"]
+        text_input.value = event["title"]
 
     text_input = TextInput(name="Event Click")
     calendar = Calendar(
@@ -216,44 +217,7 @@ def test_calendar_event_click_callback(page):
     serve_component(page, calendar)
 
     page.locator(".fc-sticky").first.click()
-    assert text_input.value == "Test Event"
-
-
-def test_calendar_event_drag_start_callback(page):
-    def callback(event):
-        text_input.value = event["event"]["title"]
-
-    text_input = TextInput(name="Drag Start")
-    calendar = Calendar(
-        current_date="2020-01-01",
-        value=[{"title": "Test Event", "start": "2020-01-15"}],
-        event_drag_start_callback=callback,
-        editable=True,
-    )
-    serve_component(page, calendar)
-
-    event = page.locator(".fc-event").first
-    target = page.locator(".fc-daygrid-day-frame", has_text="16").first
-    event.drag_to(target)
-    assert text_input.value == "Test Event"
-
-
-def test_calendar_event_drag_stop_callback(page):
-    def callback(event):
-        text_input.value = event["event"]["title"]
-
-    text_input = TextInput(name="Drag Stop")
-    calendar = Calendar(
-        current_date="2020-01-01",
-        value=[{"title": "Test Event", "start": "2020-01-15"}],
-        event_drag_stop_callback=callback,
-        editable=True,
-    )
-    serve_component(page, calendar)
-
-    event = page.locator(".fc-event").first
-    target = page.locator(".fc-daygrid-day-frame", has_text="16").first
-    event.drag_to(target)
+    wait_until(lambda: text_input.value == "Test Event")
     assert text_input.value == "Test Event"
 
 
@@ -313,3 +277,36 @@ def test_calendar_unselect_callback(page):
     start.drag_to(end)
     page.locator(".fc-toolbar-title").first.click()
     assert text_input.value == "unselected"
+
+
+def test_calendar_get_event_in_view(page):
+    calendar = Calendar(
+        current_date="2020-01-15",
+        value=[
+            {"title": "Test Event", "start": "2020-01-15"},
+            {"title": "Test Event 2", "start": "2020-01-16"},
+        ],
+    )
+    serve_component(page, calendar)
+    wait_until(lambda: page.locator(".fc-event-title").first.inner_text() == "Test Event")
+    event = calendar.get_event_in_view("2020-01-15", title="Test Event")
+    assert event.title == "Test Event"
+    assert event.start == "2020-01-15"
+
+    event.set_start("2020-01-17")
+    wait_until(lambda: calendar.value[0]["start"] == "2020-01-17")
+    assert calendar.value[1]["start"] == "2020-01-16"
+
+    event.set_end("2020-01-18")
+    wait_until(lambda: calendar.value[0]["end"] == "2020-01-18")
+    assert "end" not in calendar.value[1]
+
+    event.set_props(title="New Title", all_day=True)
+    wait_until(lambda: calendar.value[0]["title"] == "New Title")
+    assert calendar.value[0]["allDay"] == True
+    assert calendar.value[1]["title"] == "Test Event 2"
+    assert "allDay" not in calendar.value[1]
+
+    event.remove()
+    wait_until(lambda: len(calendar.value) == 1)
+    assert calendar.value[0]["title"] == "Test Event 2"

@@ -6,7 +6,7 @@
 
 Extends HoloViz Panel with FullCalendar capabilities
 
-https://github.com/user-attachments/assets/cf2e77d0-bfe4-420b-872d-aba246545716
+![Clipboard-20250116-183814-139](https://github.com/user-attachments/assets/54a6d396-926e-4a3b-a9f1-0428776201ce)
 
 ## Features
 
