@@ -61,6 +61,16 @@ def normalize_datetimes(
     dt1: str | datetime.datetime | datetime.date | int,
     dt2: str | datetime.datetime | datetime.date | int,
 ) -> pd.Timestamp | None:
+    """
+    Normalize two datetime strings or objects to pandas Timestamps.
+
+    Args:
+        dt1 (str | datetime.datetime | datetime.date | int): first datetime
+        dt2 (str | datetime.datetime | datetime.date | int): second datetime
+
+    Returns:
+        pd.Timestamp | None: normalized timestamps
+    """
     timestamp1 = pd.to_datetime(dt1)
     timestamp2 = pd.to_datetime(dt2)
 
