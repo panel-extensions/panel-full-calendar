@@ -54,11 +54,11 @@ calendar.valid_range = {
 
 ## Events
 
-In addition to setting `value` directly, events can be managed through the methods `add_event`, `remove_event`, and `update_event`. These methods allow for flexible event handling by normalizing dates internally and ensuring precise event matching.
+In addition to setting `value` directly, events can be managed through the methods `add_event`, `add_events`, `remove_event`, `update_event`, `get_event_in_view`, and `clear_events`. These methods allow for flexible event handling by normalizing dates internally and ensuring precise event matching.
 
-### Add
+### Add Events
 
-Events can be added through the `add_event` method. Valid event keys can be found in the [FullCalendar Event Parsing docs](https://fullcalendar.io/docs/event-parsing).
+An individual event can be added using the `add_event` method.
 
 ```python
 calendar.add_event(
@@ -71,22 +71,68 @@ calendar.add_event(
 )
 ```
 
-Keys can be defined in either `snake_case` or `camelCase` as long as `event_keys_auto_camel_case=True`. When this setting is enabled, keys are pre-processed into `camelCase` internally.
+### Add Multiple Events
 
-The following example is equivalent to the above but uses `snake_case` keys:
+Multiple events can be added simultaneously using the `add_events` method.
 
 ```python
-calendar.add_event(
-    title="Bi-Weekly Event",
-    start_recur="2024-10-22",
-    days_of_week=[2],
-    start_time="06:30:00",
-    end_time="07:30:00",
-    duration="01:00",
-)
+calendar.add_events([
+    {
+        "title": "Bi-Weekly Event",
+        "startRecur": "2024-10-22",
+        "daysOfWeek": [2],  # 2 represents Tuesday (0 = Sunday, 1 = Monday, ...)
+        "startTime": "06:30:00",
+        "endTime": "07:30:00",
+        "duration": "01:00",
+    },
+    {
+        "title": "Monthly Meeting",
+        "start": "2024-11-01T10:00:00",
+        "end": "2024-11-01T11:00:00",
+    }
+])
 ```
 
-For large datasets or performance-critical scenarios, using `camelCase` and setting `event_keys_auto_camel_case=False` can speed up rendering.
+The `add_events` method accepts a list of dictionaries, each representing an event. Event keys can be provided in either `snake_case` or `camelCase`, with automatic conversion available if `event_keys_auto_camel_case=True`.
+
+
+### Retrieve Events
+
+Events can be retrieved using the `get_event_in_view` method. This method allows searching for events by start date and title, with optional precise time matching. Retrieved events are returned as `CalendarEvent` objects, which provide a convenient way to interact with individual events in the calendar.
+
+```python
+from datetime import datetime
+
+try:
+    event = calendar.get_event_in_view(
+        start=datetime(2024, 10, 22),
+        title="Bi-Weekly Event",
+        match_by_time=False,
+    )
+    print("Event found:", event)
+    # Modifying the retrieved event
+    event.set_start("2024-10-22T12:00:00")
+    event.set_end("2024-10-22T13:00:00")
+except ValueError as e:
+    print(e)
+```
+
+Events retrieved using `get_event_in_view` return `CalendarEvent` objects, allowing for easy modification and interaction with the calendar.
+
+```python
+calendar_event.set_props(title="New title")
+calendar_event.set_start("2024-11-10T13:00:00")
+calendar_event.set_end("2024-11-10T16:00:00")
+calendar_event.remove()
+```
+
+### Clear Events
+
+All events can be cleared from the calendar using the `clear_events` method.
+
+```python
+calendar.clear_events()
+```
 
 ## Views
 
