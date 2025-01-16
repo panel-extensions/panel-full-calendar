@@ -449,6 +449,8 @@ class Calendar(JSComponent):
     def __init__(self, **params):
         """Create a new Calendar widget."""
         super().__init__(**params)
+        self._assign_id_to_events()
+
         self._buffer = []
         self.param.watch(
             self._update_options,
@@ -673,7 +675,8 @@ class Calendar(JSComponent):
                 id=event["id"],
                 title=event["title"],
                 start=event["start"],
-                end=event["end"],
+                end=event.get("end"),
+                all_day=event.get("allDay"),
                 calendar=self,
             )
         raise ValueError(f"No event found with start {start} and title {title}.")
@@ -707,9 +710,18 @@ class Calendar(JSComponent):
                 if callback_name == "event_change_callback":
                     new_event = info["event"]
                     for value in self.value:
-                        if value["id"] == new_event["id"]:
-                            value.update(new_event)
-                            break
+                        if value["id"] != new_event["id"]:
+                            continue
+                        value.update(new_event)
+                        break
+                    self.param.trigger("value")
+                elif callback_name == "event_remove_callback":
+                    removed_event = info["event"]
+                    for value in self.value:
+                        if value["id"] != removed_event["id"]:
+                            continue
+                        self.value.remove(value)
+                        break
                     self.param.trigger("value")
                 callback = getattr(self, callback_name)
                 if callback:
@@ -727,13 +739,16 @@ class Calendar(JSComponent):
         ]
         self._send_msg({"type": "updateOptions", "updates": updates})
 
-    @param.depends("value", watch=True)
-    async def _update_events_in_view(self):
+    def _assign_id_to_events(self):
         for event in self.value:
             event["id"] = event.get("id", str(id(event)))
             if self.event_keys_auto_camel_case:
                 for key in list(event.keys()):
                     event[to_camel_case(key)] = event.pop(key)
+
+    @param.depends("value", watch=True)
+    async def _update_events_in_view(self):
+        self._assign_id_to_events()
         await asyncio.sleep(0.001)  # needed to prevent race condition
         self._send_msg({"type": "updateEventsInView"})
 
@@ -746,23 +761,31 @@ class CalendarEvent(param.Parameterized):
     start = param.String(
         default=None,
         constant=True,
-        doc="The start of the event. Supports ISO 8601 date strings.",
+        doc="The start of the event. Supports ISO 8601 date strings. Use `set_start` to change.",
     )
 
     end = param.String(
         default=None,
         constant=True,
-        doc="The end of the event. Supports ISO 8601 date strings.",
+        doc="The end of the event. Supports ISO 8601 date strings. Use `set_end` to change.",
     )
 
-    title = param.String(default="(no title)", constant=True, doc="The title of the event.")
+    title = param.String(
+        default="(no title)",
+        constant=True,
+        doc="The title of the event. Use `set_props` to change.",
+    )
 
-    all_day = param.Boolean(default=False, constant=True, doc="Whether the event is an all-day event.")
+    all_day = param.Boolean(
+        default=False,
+        constant=True,
+        doc="Whether the event is an all-day event. Use `set_props` to change.",
+    )
 
     props = param.Dict(
         default={},
         constant=True,
-        doc="Additional properties of the event.",
+        doc="Additional properties of the event. Use `set_props` to change.",
     )
 
     calendar = param.ClassSelector(
@@ -777,13 +800,17 @@ class CalendarEvent(param.Parameterized):
 
     def set_props(self, **kwargs):
         """Modifies any of the non-date-related properties of the event."""
-        self.calendar._send_msg({"type": "setProp", "id": self.id, "updates": kwargs})
+        updates = kwargs.copy()
+        if self.calendar.event_keys_auto_camel_case:
+            updates = to_camel_case_keys(kwargs)
+
+        self.calendar._send_msg({"type": "setProp", "id": self.id, "updates": updates})
         with param.edit_constant(self):
             if "title" in kwargs:
                 self.title = kwargs.pop("title")
             if "allDay" in kwargs:
                 self.all_day = kwargs.pop("allDay")
-            self.props = {**self.props, **kwargs}
+            self.props.update(kwargs)
 
     def set_start(self, start: str | datetime.datetime | datetime.date | int):
         """Update the start of the event."""

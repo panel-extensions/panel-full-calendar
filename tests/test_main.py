@@ -59,3 +59,9 @@ def test_calendar_add_event_camel_case_precedence():
             "allDay": True,
         }  # camelCase takes precedence
     ]
+
+
+def test_calendar_clear():
+    calendar = Calendar(value=[{"start": "2020-01-01", "allDay": True}])
+    calendar.clear_events()
+    assert calendar.value == []

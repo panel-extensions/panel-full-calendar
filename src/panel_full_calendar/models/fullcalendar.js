@@ -184,28 +184,28 @@ export function render({ model, el }) {
         const calendarEvent = calendar.getEventById(event.id);
         if (calendarEvent) {
           calendarEvent.remove();
-          updateEventsInView();
+          model.send_msg({ event_remove: JSON.stringify({"event": calendarEvent}) });
+          updateEventsInView()
         }
       } else if (event.type === "setProp") {
         const calendarEvent = calendar.getEventById(event.id);
         if (calendarEvent) {
           Object.entries(event.updates).forEach(([key, value]) => {
             calendarEvent.setProp(key, value);
-            model.send_msg({ event_change: JSON.stringify({"event": calendarEvent}) });
+            updateEvent(calendarEvent)
           });
-          updateEventsInView();
         }
       } else if (event.type === "setStart") {
         const calendarEvent = calendar.getEventById(event.id);
         if (calendarEvent) {
           calendarEvent.setStart(event.updates.start);
-          updateEventsInView();
+          updateEvent(calendarEvent)
         }
       } else if (event.type === "setEnd") {
         const calendarEvent = calendar.getEventById(event.id);
         if (calendarEvent) {
           calendarEvent.setEnd(event.updates.end);
-          updateEventsInView();
+          updateEvent(calendarEvent)
         }
       }
     })
@@ -216,10 +216,18 @@ export function render({ model, el }) {
     return calendar
   }
 
+  function updateEvent(calendarEvent) {
+    if (calendar) {
+      updateEventsInView();
+      console.log("event_change", calendarEvent)
+      model.send_msg({ event_change: JSON.stringify({"event": calendarEvent}) });
+    }
+  }
+
   function updateEventsInView() {
     if (calendar) {
-        const events_in_view = calendar.getEvents()
-        model.send_msg({ events_in_view: JSON.stringify(events_in_view) })
+      const events_in_view = calendar.getEvents()
+      model.send_msg({ events_in_view: JSON.stringify(events_in_view) })
     }
   }
 
