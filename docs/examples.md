@@ -1,20 +1,32 @@
 # Examples
 
 ```{.python pycafe-embed pycafe-embed-style="border: 1px solid #e6e6e6; border-radius: 8px;" pycafe-embed-width="100%" pycafe-embed-height="400px" pycafe-embed-scale="1.0"}
+import datetime
 import panel as pn
-
 from panel_full_calendar import Calendar
 
 pn.extension()
 
-def update_date_clicked(event):
+def update_date_clicked(event_dict):
     date_clicked.object = f"Date clicked: {event['startStr']}"
 
+def update_event_title(event_dict):
+    event = CalendarEvent.from_dict(event_dict, calendar)
+    if "❌" in event.title:
+        title = event.title.replace("❌", "✅")
+    else:
+        title = event.title.replace("✅", "❌")
+    event.set_props(title=title)
 
+now = datetime.datetime.now()
 date_clicked = pn.pane.Markdown()
 calendar = Calendar(
+    value=[
+        {"title": "❌ Toggle me!", "start": now},
+    ],
     selectable=True,
     select_callback=update_date_clicked,
+    event_click_callback=update_event_title,
     sizing_mode="stretch_width",
 )
 pn.Column(date_clicked, calendar).servable()
@@ -94,7 +106,6 @@ calendar.add_events([
 ```
 
 The `add_events` method accepts a list of dictionaries, each representing an event. Event keys can be provided in either `snake_case` or `camelCase`, with automatic conversion available if `event_keys_auto_camel_case=True`.
-
 
 ### Retrieve Events
 
